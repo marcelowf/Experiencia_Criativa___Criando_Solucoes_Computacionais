@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}<title>Resultado da Triagem — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Resultado da Triagem</h1>
+    <p class="page-subtitle">
+      {{ paciente.nome }} · {{ avaliacao.data.strftime('%d/%m/%Y') }}
+      {% if avaliacao.versao_pesos %}
+      ·
+      <span class="badge badge-info" title="Versão dos pesos usada no cálculo">
+        Pesos {{ avaliacao.versao_pesos.nome }}
+      </span>
+      {% endif %}
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <button onclick="window.print()" class="btn btn-secondary">
+      <i class="fa fa-print"></i> Imprimir
+    </button>
+    <a href="{{ url_for('paciente.detalhe', id=paciente.id) }}" class="btn btn-secondary">
+      <i class="fa fa-arrow-left"></i> Voltar
+    </a>
+  </div>
+</div>
+
+<!-- Card de resultado -->
+{% if avaliacao.recomendacao == 'ENCAMINHAR' %}
+<div class="result-card result-card-encaminhar mb-4">
+  <div class="result-icon text-danger"><i class="fa fa-exclamation-triangle"></i></div>
+  <h2 class="result-title">ENCAMINHAR</h2>
+  <p class="result-desc">Este paciente deve ser encaminhado para teste genético confirmatório.</p>
+  <div class="score-pill">
+    <span class="score-pill-value text-danger">{{ '%.4f'|format(avaliacao.score) }}</span>
+    <span class="score-pill-label">/ limiar {{ '%.2f'|format(limiar) }}</span>
+  </div>
+  <div class="score-bar-wrap mt-3">
+    {% set pct = [avaliacao.score * 100, 100]|min %}
+    <div class="score-bar danger" style="width:{{ pct }}%;"></div>
+  </div>
+</div>
+{% else %}
+<div class="result-card result-card-nao-encaminhar mb-4">
+  <div class="result-icon text-success"><i class="fa fa-check-circle"></i></div>
+  <h2 class="result-title">NÃO ENCAMINHAR</h2>
+  <p class="result-desc">Score abaixo do limiar clínico. Encaminhamento não indicado no momento.</p>
+  <div class="score-pill">
+    <span class="score-pill-value text-success">{{ '%.4f'|format(avaliacao.score) }}</span>
+    <span class="score-pill-label">/ limiar {{ '%.2f'|format(limiar) }}</span>
+  </div>
+  <div class="score-bar-wrap mt-3">
+    {% set pct = [avaliacao.score * 100, 100]|min %}
+    <div class="score-bar success" style="width:{{ pct }}%;"></div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tabela de sintomas -->
+<div class="card mb-4">
+  <div class="card-header">Sintomas avaliados</div>
+  <table class="table table-sm mb-0">
+    <thead>
+      <tr>
+        <th>Sintoma</th>
+        <th class="text-center" style="width:90px;">Presente</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sa in avaliacao.sintomas %}
+      <tr>
+        <td>{{ sa.sintoma.label }}</td>
+        <td class="text-center">
+          {% if sa.presente %}
+            <span class="badge badge-danger">Sim</span>
+          {% else %}
+            <span class="badge badge-secondary">Não</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div style="display:flex; gap:10px; flex-wrap:wrap;">
+  <a href="{{ url_for('avaliacao.formulario', id_paciente=paciente.id) }}" class="btn btn-success">
+    <i class="fa fa-plus"></i> Nova Avaliação
+  </a>
+  <a href="{{ url_for('avaliacao.historico', id_paciente=paciente.id) }}" class="btn btn-info">
+    <i class="fa fa-history"></i> Ver Histórico
+  </a>
+</div>
+
+{% endblock %}

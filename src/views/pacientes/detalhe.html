@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}<title>{{ paciente.nome }} — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">{{ paciente.nome }}</h1>
+    <p class="page-subtitle">Detalhes do paciente</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('avaliacao.formulario', id_paciente=paciente.id) }}" class="btn btn-success">
+      <i class="fa fa-stethoscope"></i> Nova Avaliação
+    </a>
+    <a href="{{ url_for('paciente.editar', id=paciente.id) }}" class="btn btn-warning">
+      <i class="fa fa-pencil"></i> Editar
+    </a>
+    <a href="{{ url_for('paciente.lista') }}" class="btn btn-secondary">
+      <i class="fa fa-arrow-left"></i> Voltar
+    </a>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-sm-6 col-lg-4">
+    <div class="card">
+      <div class="card-header">Dados do Paciente</div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><strong>CPF:</strong> {{ paciente.cpf }}</li>
+        <li class="list-group-item"><strong>Sexo:</strong> {{ 'Masculino' if paciente.sexo == 'M' else 'Feminino' }}</li>
+        <li class="list-group-item"><strong>Nascimento:</strong> {{ paciente.data_nascimento.strftime('%d/%m/%Y') }}</li>
+        <li class="list-group-item"><strong>Responsável:</strong> {{ paciente.responsavel or '—' }}</li>
+        <li class="list-group-item"><strong>Profissional:</strong> {{ paciente.usuario.nome }}</li>
+        {% if paciente.consentimento_dado_em %}
+        <li class="list-group-item">
+          <strong><i class="fa fa-shield text-success"></i> Consentimento (LGPD):</strong>
+          <span class="badge badge-success">Dado em {{ paciente.consentimento_dado_em.strftime('%d/%m/%Y %H:%M') }}</span>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="page-header" style="margin-bottom:16px;">
+  <div class="page-header-left">
+    <h2 class="page-title" style="font-size:16px;">Avaliações Realizadas</h2>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('avaliacao.formulario', id_paciente=paciente.id) }}" class="btn btn-success btn-sm">
+      <i class="fa fa-plus"></i> Nova
+    </a>
+  </div>
+</div>
+
+{% if avaliacoes and avaliacoes|length >= 2 %}
+<div class="card mb-4">
+  <div class="card-header"><i class="fa fa-line-chart"></i> Evolução do score</div>
+  <div class="card-body">
+    <canvas id="chart-evolucao" height="80"></canvas>
+  </div>
+</div>
+{% endif %}
+
+{% if avaliacoes %}
+<div class="card">
+  <div class="card-body p-0">
+    <table id="tabela-avaliacoes" class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th class="d-none d-sm-table-cell">Score</th>
+          <th>Recomendação</th>
+          <th class="text-center">Ver</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for av in avaliacoes|sort(attribute='data', reverse=True) %}
+        <tr>
+          <td>{{ av.data.strftime('%d/%m/%Y') }}</td>
+          <td class="d-none d-sm-table-cell">{{ '%.4f'|format(av.score) }}</td>
+          <td>
+            {% if av.recomendacao == 'ENCAMINHAR' %}
+              <span class="badge badge-danger">ENCAMINHAR</span>
+            {% else %}
+              <span class="badge badge-success">NÃO ENCAMINHAR</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('avaliacao.resultado', id=av.id) }}" class="btn btn-sm btn-info">
+              <i class="fa fa-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state" style="padding:32px;">
+  <div class="empty-state-icon"><i class="fa fa-stethoscope"></i></div>
+  <div class="empty-state-title">Nenhuma avaliação ainda</div>
+  <a href="{{ url_for('avaliacao.formulario', id_paciente=paciente.id) }}" class="btn btn-success">
+    <i class="fa fa-plus"></i> Iniciar Triagem
+  </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $('#tabela-avaliacoes').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+    order: [[0, 'desc']],
+    columnDefs: [{ orderable: false, targets: -1 }]
+  });
+</script>
+{% if avaliacoes and avaliacoes|length >= 2 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const serie = {{ serie|tojson }};
+  const limiar = {{ limiar }};
+  new Chart(document.getElementById('chart-evolucao'), {
+    type: 'line',
+    data: {
+      labels: serie.map(p => p.data),
+      datasets: [
+        {
+          label: 'Score',
+          data: serie.map(p => p.score),
+          borderColor: '#2563EB',
+          backgroundColor: 'rgba(37,99,235,0.1)',
+          pointBackgroundColor: serie.map(p => p.recomendacao === 'ENCAMINHAR' ? '#DC2626' : '#16A34A'),
+          pointRadius: 6, pointHoverRadius: 8,
+          tension: 0.2, fill: true
+        },
+        {
+          label: `Limiar de encaminhamento (${limiar.toFixed(2)})`,
+          data: serie.map(() => limiar),
+          borderColor: '#DC2626', borderDash: [6, 6],
+          pointRadius: 0, fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, suggestedMax: 1.0 } }
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

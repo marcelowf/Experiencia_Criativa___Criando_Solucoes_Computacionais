@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}<title>Histórico — {{ paciente.nome }} — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Histórico de Avaliações</h1>
+    <p class="page-subtitle">{{ paciente.nome }} · {{ 'Masculino' if paciente.sexo == 'M' else 'Feminino' }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('avaliacao.formulario', id_paciente=paciente.id) }}" class="btn btn-success">
+      <i class="fa fa-plus"></i> Nova Avaliação
+    </a>
+    <a href="{{ url_for('paciente.detalhe', id=paciente.id) }}" class="btn btn-secondary">
+      <i class="fa fa-arrow-left"></i> Voltar
+    </a>
+  </div>
+</div>
+
+{% if avaliacoes %}
+<div class="card">
+  <div class="card-body p-0">
+    <table id="tabela-historico" class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th class="d-none d-sm-table-cell">Score</th>
+          <th>Recomendação</th>
+          <th class="d-none d-md-table-cell">Avaliado por</th>
+          <th class="text-center">Ver</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for av in avaliacoes %}
+        <tr>
+          <td>{{ av.data.strftime('%d/%m/%Y') }}</td>
+          <td class="d-none d-sm-table-cell">{{ '%.4f'|format(av.score) }}</td>
+          <td>
+            {% if av.recomendacao == 'ENCAMINHAR' %}
+              <span class="badge badge-danger">ENCAMINHAR</span>
+            {% else %}
+              <span class="badge badge-success">NÃO ENCAMINHAR</span>
+            {% endif %}
+          </td>
+          <td class="d-none d-md-table-cell">{{ av.usuario.nome }}</td>
+          <td class="text-center">
+            <a href="{{ url_for('avaliacao.resultado', id=av.id) }}" class="btn btn-sm btn-info">
+              <i class="fa fa-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state" style="padding:32px;">
+  <div class="empty-state-icon"><i class="fa fa-history"></i></div>
+  <div class="empty-state-title">Nenhuma avaliação registrada</div>
+  <a href="{{ url_for('avaliacao.formulario', id_paciente=paciente.id) }}" class="btn btn-success">
+    <i class="fa fa-plus"></i> Iniciar Triagem
+  </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $('#tabela-historico').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+    order: [[0, 'desc']],
+    columnDefs: [{ orderable: false, targets: -1 }]
+  });
+</script>
+{% endblock %}

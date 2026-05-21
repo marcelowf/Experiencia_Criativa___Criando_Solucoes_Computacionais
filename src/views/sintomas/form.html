@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}<title>{{ acao }} — Triagem SXF</title>{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fa fa-stethoscope"></i> {{ acao }}</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST"
+              action="{{ url_for('sintoma.editar', id=sintoma.id) if sintoma else url_for('sintoma.novo') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="form-group">
+            <label for="chave">Chave técnica <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="chave" name="chave"
+                   value="{{ sintoma.chave if sintoma else '' }}"
+                   pattern="[a-z0-9_]+"
+                   placeholder="ex.: deficiencia_intelectual"
+                   {{ 'readonly' if sintoma }} required>
+            <small class="text-muted">Use apenas letras minúsculas, números e underline. Não pode ser alterado depois.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="label">Rótulo exibido <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="label" name="label"
+                   value="{{ sintoma.label if sintoma else '' }}" required>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 form-group">
+              <label for="peso_masculino">Peso ♂ (Masculino)</label>
+              <input type="number" step="0.01" min="0" max="1" class="form-control"
+                     id="peso_masculino" name="peso_masculino"
+                     value="{{ sintoma.peso_masculino if sintoma and sintoma.peso_masculino is not none else '' }}"
+                     placeholder="vazio = não se aplica">
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="peso_feminino">Peso ♀ (Feminino)</label>
+              <input type="number" step="0.01" min="0" max="1" class="form-control"
+                     id="peso_feminino" name="peso_feminino"
+                     value="{{ sintoma.peso_feminino if sintoma and sintoma.peso_feminino is not none else '' }}"
+                     placeholder="vazio = não se aplica">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="descricao_clinica">Descrição clínica (tooltip no formulário de avaliação)</label>
+            <textarea class="form-control" id="descricao_clinica" name="descricao_clinica"
+                      rows="4" placeholder="Texto exibido como tooltip ao profissional...">{{ sintoma.descricao_clinica if sintoma and sintoma.descricao_clinica else '' }}</textarea>
+          </div>
+
+          <div class="form-group">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="ativo" name="ativo"
+                     {{ 'checked' if (sintoma is none or sintoma.ativo) }}>
+              <label class="custom-control-label" for="ativo">Sintoma ativo (usado em novas avaliações)</label>
+            </div>
+          </div>
+
+          {% if sintoma %}
+          <div class="alert alert-warning" id="bloco-notas-versao"
+               style="{{ '' if exigir_notas else 'display:none;' }}">
+            <strong><i class="fa fa-exclamation-triangle"></i> Alteração de peso detectada</strong>
+            <p class="mb-2 small mt-2">
+              Mudar peso cria uma <strong>nova versão</strong> dos pesos científicos.
+              Avaliações futuras serão calculadas com a nova versão; as antigas continuam
+              vinculadas à versão que foi usada no momento.
+            </p>
+            <label for="notas_versao" class="mb-1">Motivo da alteração <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="notas_versao" name="notas_versao"
+                      rows="2" placeholder="Ex.: Recalibração com novo estudo X, ajuste após validação clínica..."></textarea>
+          </div>
+          {% endif %}
+
+          <div class="d-flex justify-content-between">
+            <a href="{{ url_for('sintoma.lista') }}" class="btn btn-secondary">
+              <i class="fa fa-arrow-left"></i> Voltar
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-save"></i> {{ acao }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if sintoma %}
+<script>
+  // Mostra bloco de notas quando os pesos mudam
+  const pesoMOrig = "{{ sintoma.peso_masculino if sintoma.peso_masculino is not none else '' }}";
+  const pesoFOrig = "{{ sintoma.peso_feminino if sintoma.peso_feminino is not none else '' }}";
+  const bloco = document.getElementById('bloco-notas-versao');
+  function check() {
+    const m = document.getElementById('peso_masculino').value;
+    const f = document.getElementById('peso_feminino').value;
+    bloco.style.display = (m !== pesoMOrig || f !== pesoFOrig) ? '' : 'none';
+  }
+  document.getElementById('peso_masculino').addEventListener('input', check);
+  document.getElementById('peso_feminino').addEventListener('input', check);
+</script>
+{% endif %}
+{% endblock %}

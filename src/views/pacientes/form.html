@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}<title>{{ acao }} — Triagem SXF</title>{% endblock %}
+{% block content %}
+{% set fd = form_data or {} %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fa fa-user"></i> {{ acao }}</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST"
+              action="{{ url_for('paciente.editar', id=paciente.id) if paciente else url_for('paciente.novo') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <label for="nome">Nome completo <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="nome" name="nome"
+                   value="{{ fd.get('nome') or (paciente.nome if paciente else '') }}" required>
+          </div>
+          <div class="form-group">
+            <label for="cpf">CPF <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="cpf" name="cpf"
+                   value="{{ fd.get('cpf') or (paciente.cpf if paciente else '') }}"
+                   placeholder="000.000.000-00" maxlength="14" required>
+            <small class="text-muted">Formato 000.000.000-00 ou apenas dígitos.</small>
+          </div>
+          <div class="form-group">
+            <label for="sexo">Sexo <span class="text-danger">*</span></label>
+            <select class="form-control" id="sexo" name="sexo" required>
+              {% set sexo_atual = fd.get('sexo') or (paciente.sexo if paciente else '') %}
+              <option value="">Selecione...</option>
+              <option value="M" {{ 'selected' if sexo_atual == 'M' }}>Masculino</option>
+              <option value="F" {{ 'selected' if sexo_atual == 'F' }}>Feminino</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="data_nascimento">Data de Nascimento <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="data_nascimento" name="data_nascimento"
+                   value="{{ fd.get('data_nascimento') or (paciente.data_nascimento.strftime('%Y-%m-%d') if paciente else '') }}" required>
+          </div>
+          <div class="form-group">
+            <label for="responsavel">Responsável</label>
+            <input type="text" class="form-control" id="responsavel" name="responsavel"
+                   value="{{ fd.get('responsavel') or (paciente.responsavel if paciente and paciente.responsavel else '') }}"
+                   placeholder="Nome do responsável (opcional)">
+          </div>
+          {% if not paciente %}
+          <div class="form-group">
+            <div class="alert alert-warning" style="font-size:0.9rem;">
+              <strong><i class="fa fa-shield"></i> Termo de Consentimento (LGPD)</strong>
+              <div class="custom-control custom-checkbox mt-2">
+                <input type="checkbox" class="custom-control-input" id="consentimento"
+                       name="consentimento" required>
+                <label class="custom-control-label" for="consentimento">
+                  Confirmo que tenho consentimento expresso do paciente ou responsável legal
+                  para a coleta, armazenamento e tratamento destes dados clínicos,
+                  conforme a Lei Geral de Proteção de Dados (LGPD).
+                </label>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="d-flex justify-content-between">
+            <a href="{{ url_for('paciente.lista') }}" class="btn btn-secondary">
+              <i class="fa fa-arrow-left"></i> Voltar
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-save"></i> {{ acao }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Mascara simples para CPF: digita so digitos, formata na saída
+  document.getElementById('cpf').addEventListener('blur', function() {
+    var v = (this.value || '').replace(/\D/g, '');
+    if (v.length === 11) {
+      this.value = v.substr(0,3)+'.'+v.substr(3,3)+'.'+v.substr(6,3)+'-'+v.substr(9,2);
+    }
+  });
+</script>
+{% endblock %}

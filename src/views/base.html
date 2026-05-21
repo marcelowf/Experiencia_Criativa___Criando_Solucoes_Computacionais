@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-theme="{{ tema_atual|default('claro') }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  {% block title %}<title>Triagem SXF</title>{% endblock %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.bootstrap4.min.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+</head>
+<body>
+<div class="app-wrapper">
+
+  <!-- Overlay — fecha sidebar ao tocar fora (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  {% if current_user.is_authenticated %}
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <a class="sidebar-brand" href="{{ url_for('auth.home') }}">
+      <div class="sidebar-brand-icon"><i class="fa fa-medkit"></i></div>
+      <div>
+        <span class="brand-name">Triagem SXF</span>
+        <span class="brand-sub">Sistema Clínico</span>
+      </div>
+    </a>
+
+    <nav class="sidebar-nav">
+      <span class="sidebar-nav-section">Principal</span>
+      <a class="sidebar-nav-item {% if request.endpoint == 'auth.home' %}active{% endif %}"
+         href="{{ url_for('auth.home') }}">
+        <i class="fa fa-home nav-icon"></i> Início
+      </a>
+      <a class="sidebar-nav-item {% if request.endpoint and 'paciente' in request.endpoint %}active{% endif %}"
+         href="{{ url_for('paciente.lista') }}">
+        <i class="fa fa-users nav-icon"></i> Pacientes
+      </a>
+      <a class="sidebar-nav-item {% if request.endpoint == 'relatorio.index' %}active{% endif %}"
+         href="{{ url_for('relatorio.index') }}">
+        <i class="fa fa-bar-chart nav-icon"></i> Relatórios
+      </a>
+      {% if current_user.is_admin %}
+      <span class="sidebar-nav-section">Administração</span>
+      <a class="sidebar-nav-item {% if request.endpoint and 'usuario' in request.endpoint %}active{% endif %}"
+         href="{{ url_for('usuario.lista') }}">
+        <i class="fa fa-user-circle nav-icon"></i> Usuários
+      </a>
+      <a class="sidebar-nav-item {% if request.endpoint and 'sintoma' in request.endpoint %}active{% endif %}"
+         href="{{ url_for('sintoma.lista') }}">
+        <i class="fa fa-stethoscope nav-icon"></i> Sintomas
+      </a>
+      <a class="sidebar-nav-item {% if request.endpoint and 'logs' in request.endpoint %}active{% endif %}"
+         href="{{ url_for('logs.index') }}">
+        <i class="fa fa-history nav-icon"></i> Auditoria
+      </a>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user-avatar">{{ current_user.nome[0]|upper }}</div>
+      <div class="sidebar-user-info">
+        <span class="sidebar-user-name">{{ current_user.nome }}</span>
+        <span class="sidebar-user-role">{{ 'Administrador' if current_user.is_admin else 'Profissional' }}</span>
+      </div>
+      <form method="POST" action="{{ url_for('auth.set_tema', valor='claro') }}"
+            style="display:inline; margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit"
+                class="sidebar-theme-btn {{ 'active' if tema_atual == 'claro' }}"
+                title="Tema claro">
+          <i class="fa fa-sun-o"></i>
+        </button>
+      </form>
+      <form method="POST" action="{{ url_for('auth.set_tema', valor='escuro') }}"
+            style="display:inline; margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit"
+                class="sidebar-theme-btn {{ 'active' if tema_atual == 'escuro' }}"
+                title="Tema escuro">
+          <i class="fa fa-moon-o"></i>
+        </button>
+      </form>
+      <form method="POST" action="{{ url_for('auth.logoff') }}" style="display:inline; margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="sidebar-logout" title="Sair"
+                style="background:transparent; border:none; padding:6px 10px; cursor:pointer;">
+          <i class="fa fa-sign-out"></i>
+        </button>
+      </form>
+    </div>
+  </aside>
+  {% endif %}
+
+  <!-- Conteúdo principal -->
+  <div class="main-content" {% if not current_user.is_authenticated %}style="margin-left:0;"{% endif %}>
+
+    <!-- Barra superior mobile -->
+    <div class="mobile-topbar">
+      <button class="mobile-menu-btn" id="sidebarToggle" aria-label="Abrir menu">
+        <i class="fa fa-bars"></i>
+      </button>
+      <span class="mobile-topbar-title"><i class="fa fa-medkit"></i> Triagem SXF</span>
+    </div>
+
+    <!-- Flash messages -->
+    <div class="flash-container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="close" data-dismiss="alert" aria-label="Fechar">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <div class="page-content">
+      {% block content %}{% endblock %}
+    </div>
+  </div><!-- /main-content -->
+
+</div><!-- /app-wrapper -->
+
+<script src="{{ url_for('static', filename='js/jquery-3.5.1.js') }}"></script>
+<script src="{{ url_for('static', filename='js/popper.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/jquery.dataTables.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dataTables.bootstrap4.min.js') }}"></script>
+<script>
+  (function () {
+    var sidebar  = document.getElementById('sidebar');
+    var overlay  = document.getElementById('sidebarOverlay');
+    var toggle   = document.getElementById('sidebarToggle');
+    function open()  { sidebar.classList.add('open');    overlay.classList.add('active'); }
+    function close() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+    if (toggle)  toggle.addEventListener('click', function() { sidebar.classList.contains('open') ? close() : open(); });
+    if (overlay) overlay.addEventListener('click', close);
+  })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

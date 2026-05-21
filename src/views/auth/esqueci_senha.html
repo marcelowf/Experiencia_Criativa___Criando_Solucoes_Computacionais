@@ -1,0 +1,32 @@
+{% extends "base_login.html" %}
+{% block title %}<title>Recuperar Senha — Triagem SXF</title>{% endblock %}
+{% block content %}
+<div class="login-wrapper">
+  <div class="login-box">
+    <div class="text-center mb-4">
+      <h2><i class="fa fa-key"></i> Recuperar senha</h2>
+      <p class="text-muted small">Informe seu e-mail para receber um link de redefinição.</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('reset.esqueci_senha') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input type="email" class="form-control" id="email" name="email" required autofocus>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">
+        <i class="fa fa-paper-plane"></i> Enviar link
+      </button>
+      <div class="text-center mt-3">
+        <a href="{{ url_for('auth.login') }}">Voltar ao login</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

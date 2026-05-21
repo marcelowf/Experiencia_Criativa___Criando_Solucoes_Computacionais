@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}<title>Pesos {{ versao.nome }} — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      Pesos da versão {{ versao.nome }}
+      {% if versao.ativa %}
+        <span class="badge badge-success ml-2">Ativa</span>
+      {% else %}
+        <span class="badge badge-secondary ml-2">Histórica</span>
+      {% endif %}
+    </h1>
+    <p class="page-subtitle">
+      Criada em {{ versao.criada_em.strftime('%d/%m/%Y %H:%M') }}
+      por {{ versao.criada_por.nome if versao.criada_por else '—' }}
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('sintoma.versoes') }}" class="btn btn-secondary">
+      <i class="fa fa-arrow-left"></i> Voltar
+    </a>
+  </div>
+</div>
+
+{% if versao.notas %}
+<div class="card mb-4">
+  <div class="card-header">Notas</div>
+  <div class="card-body">{{ versao.notas }}</div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Sintoma</th>
+          <th class="text-center">Peso ♂</th>
+          <th class="text-center">Peso ♀</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pesos %}
+        <tr>
+          <td>{{ p.sintoma.label }}</td>
+          <td class="text-center">{{ '%.2f'|format(p.peso_masculino) if p.peso_masculino is not none else '—' }}</td>
+          <td class="text-center">{{ '%.2f'|format(p.peso_feminino) if p.peso_feminino is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

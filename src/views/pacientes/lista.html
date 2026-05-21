@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}<title>Pacientes — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Pacientes</h1>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('paciente.novo') }}" class="btn btn-primary">
+      <i class="fa fa-user-plus"></i> Novo Paciente
+    </a>
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('paciente.lixeira') }}" class="btn btn-secondary" title="Lixeira">
+      <i class="fa fa-trash-o"></i> Lixeira
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+{% if pacientes %}
+<div class="card">
+  <div class="card-body p-0">
+    <table id="tabela-pacientes" class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th class="d-none d-lg-table-cell">CPF</th>
+          <th class="d-none d-md-table-cell">Sexo</th>
+          <th class="d-none d-sm-table-cell">Nascimento</th>
+          <th class="d-none d-xl-table-cell">Responsável</th>
+          <th class="text-center">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pacientes %}
+        <tr>
+          <td>{{ p.nome }}</td>
+          <td class="d-none d-lg-table-cell">{{ p.cpf }}</td>
+          <td class="d-none d-md-table-cell">{{ 'M' if p.sexo == 'M' else 'F' }}</td>
+          <td class="d-none d-sm-table-cell">{{ p.data_nascimento.strftime('%d/%m/%Y') }}</td>
+          <td class="d-none d-xl-table-cell">{{ p.responsavel or '—' }}</td>
+          <td class="text-center" style="white-space:nowrap;">
+            <a href="{{ url_for('paciente.detalhe', id=p.id) }}" class="btn btn-sm btn-info" title="Detalhes">
+              <i class="fa fa-eye"></i>
+            </a>
+            <a href="{{ url_for('avaliacao.formulario', id_paciente=p.id) }}" class="btn btn-sm btn-success" title="Nova Avaliação">
+              <i class="fa fa-stethoscope"></i>
+            </a>
+            <a href="{{ url_for('paciente.editar', id=p.id) }}" class="btn btn-sm btn-warning" title="Editar">
+              <i class="fa fa-pencil"></i>
+            </a>
+            <form method="POST" action="{{ url_for('paciente.remover', id=p.id) }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Remover {{ p.nome }}? (poderá ser restaurado pelo admin)')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm btn-danger" title="Remover">
+                <i class="fa fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon"><i class="fa fa-users"></i></div>
+  <div class="empty-state-title">Nenhum paciente cadastrado</div>
+  <div class="empty-state-text">Cadastre o primeiro paciente para iniciar as triagens.</div>
+  <a href="{{ url_for('paciente.novo') }}" class="btn btn-primary">
+    <i class="fa fa-user-plus"></i> Cadastrar Paciente
+  </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $('#tabela-pacientes').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+    order: [[0, 'asc']],
+    columnDefs: [{ orderable: false, targets: -1 }]
+  });
+</script>
+{% endblock %}

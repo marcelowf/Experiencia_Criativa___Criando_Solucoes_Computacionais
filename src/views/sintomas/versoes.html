@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}<title>Histórico de Versões — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Histórico de Versões dos Pesos</h1>
+    <p class="page-subtitle">Cada alteração de peso de sintoma cria uma versão imutável.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('sintoma.lista') }}" class="btn btn-secondary">
+      <i class="fa fa-arrow-left"></i> Voltar
+    </a>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  <i class="fa fa-info-circle"></i>
+  Cada avaliação salva referencia a versão dos pesos vigente no momento do cálculo,
+  garantindo rastreabilidade clínica. Versões antigas não podem ser editadas.
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Versão</th>
+          <th>Criada em</th>
+          <th>Por</th>
+          <th>Status</th>
+          <th>Notas</th>
+          <th class="text-center">Ver pesos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in versoes %}
+        <tr>
+          <td><strong>{{ v.nome }}</strong></td>
+          <td>{{ v.criada_em.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>{{ v.criada_por.nome if v.criada_por else '—' }}</td>
+          <td>
+            {% if v.ativa %}
+              <span class="badge badge-success"><i class="fa fa-check"></i> Ativa</span>
+            {% else %}
+              <span class="badge badge-secondary">Histórica</span>
+            {% endif %}
+          </td>
+          <td><small>{{ v.notas or '—' }}</small></td>
+          <td class="text-center">
+            <a href="{{ url_for('sintoma.versao_detalhe', id=v.id) }}" class="btn btn-sm btn-info">
+              <i class="fa fa-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

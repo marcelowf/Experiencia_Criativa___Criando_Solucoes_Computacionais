@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}<title>Início — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Bem-vindo, {{ current_user.nome }}</h1>
+    <p class="page-subtitle">Sistema de Triagem — Síndrome do X Frágil</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-4 mb-3">
+    <a href="{{ url_for('paciente.novo') }}" class="action-card">
+      <div class="action-card-icon" style="background:#EEF2FF; color:#2563EB;">
+        <i class="fa fa-user-plus"></i>
+      </div>
+      <div class="action-card-title">Novo Paciente</div>
+      <div class="action-card-desc">Cadastre um paciente para iniciar a triagem clínica.</div>
+    </a>
+  </div>
+  <div class="col-md-4 mb-3">
+    <a href="{{ url_for('paciente.lista') }}" class="action-card">
+      <div class="action-card-icon" style="background:#DCFCE7; color:#16A34A;">
+        <i class="fa fa-users"></i>
+      </div>
+      <div class="action-card-title">Meus Pacientes</div>
+      <div class="action-card-desc">Acesse e gerencie a lista de pacientes cadastrados.</div>
+    </a>
+  </div>
+  <div class="col-md-4 mb-3">
+    <a href="{{ url_for('relatorio.index') }}" class="action-card">
+      <div class="action-card-icon" style="background:#FEE2E2; color:#DC2626;">
+        <i class="fa fa-bar-chart"></i>
+      </div>
+      <div class="action-card-title">Relatórios</div>
+      <div class="action-card-desc">Consulte o histórico de triagens e avaliações realizadas.</div>
+    </a>
+  </div>
+</div>
+
+{% if kpis_mes %}
+<h3 class="mt-4 mb-3" style="font-size:1.1rem; color:var(--text-secondary);">
+  <i class="fa fa-calendar"></i> Visão do mês corrente
+</h3>
+<div class="row mb-4">
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="fa fa-clipboard"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ kpis_mes.total }}</div>
+        <div class="stat-label">Avaliações no mês</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon red"><i class="fa fa-exclamation-triangle"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ kpis_mes.encaminhar }}</div>
+        <div class="stat-label">Encaminhamentos</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="fa fa-percent"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ kpis_mes.pct_encaminhar }}%</div>
+        <div class="stat-label">% Encaminhamento</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="fa fa-line-chart"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ '%.4f'|format(kpis_mes.score_medio) }}</div>
+        <div class="stat-label">Score médio</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <i class="fa fa-line-chart"></i> Últimos 6 meses
+  </div>
+  <div class="card-body">
+    <canvas id="chart-home-6m" height="80"></canvas>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if serie_6m %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const dados = {{ serie_6m|tojson }};
+  new Chart(document.getElementById('chart-home-6m'), {
+    type: 'bar',
+    data: {
+      labels: dados.map(d => d.mes),
+      datasets: [
+        { label: 'Não Encaminhar', data: dados.map(d => d.nao_encaminhar),
+          backgroundColor: '#16A34A', stack: 's' },
+        { label: 'Encaminhar', data: dados.map(d => d.encaminhar),
+          backgroundColor: '#DC2626', stack: 's' }
+      ]
+    },
+    options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+  });
+</script>
+{% endif %}
+{% endblock %}

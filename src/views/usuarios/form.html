@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}<title>{{ acao }} — Triagem SXF</title>{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fa fa-user-circle"></i> {{ acao }}</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST"
+              action="{{ url_for('usuario.editar', id=usuario.id) if usuario else url_for('usuario.novo') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <label for="nome">Nome completo <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="nome" name="nome"
+                   value="{{ usuario.nome if usuario else '' }}" required>
+          </div>
+          <div class="form-group">
+            <label for="email">E-mail <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" id="email" name="email"
+                   value="{{ usuario.email if usuario else '' }}"
+                   {{ 'readonly' if usuario }} required>
+            {% if usuario %}
+              <small class="text-muted">O e-mail não pode ser alterado.</small>
+            {% endif %}
+          </div>
+          <div class="form-group">
+            <label for="senha">
+              Senha {% if not usuario %}<span class="text-danger">*</span>{% endif %}
+            </label>
+            <input type="password" class="form-control" id="senha" name="senha"
+                   placeholder="{{ 'Nova senha (deixe em branco para manter)' if usuario else 'Senha' }}"
+                   {{ '' if usuario else 'required' }}>
+          </div>
+          <div class="form-group">
+            <label for="perfil">Perfil <span class="text-danger">*</span></label>
+            <select class="form-control" id="perfil" name="perfil" required>
+              <option value="padrao" {{ 'selected' if usuario and usuario.perfil == 'padrao' }}>
+                Padrão
+              </option>
+              <option value="admin" {{ 'selected' if usuario and usuario.perfil == 'admin' }}>
+                Administrador
+              </option>
+            </select>
+          </div>
+          <div class="d-flex justify-content-between">
+            <a href="{{ url_for('usuario.lista') }}" class="btn btn-secondary">
+              <i class="fa fa-arrow-left"></i> Voltar
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-save"></i> {{ acao }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

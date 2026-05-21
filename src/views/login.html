@@ -1,0 +1,42 @@
+{% extends "base_login.html" %}
+{% block title %}<title>Login — Triagem SXF</title>{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+  <div class="card shadow" style="width: 400px;">
+    <div class="card-body p-4">
+      <h4 class="card-title text-center mb-2">
+        <i class="fa fa-medkit text-primary"></i> Triagem SXF
+      </h4>
+      <p class="text-center text-muted small mb-4">Sistema de Triagem — Síndrome do X Frágil</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label for="email">E-mail</label>
+          <input type="email" class="form-control" id="email" name="email"
+                 placeholder="profissional@hospital.com" required autofocus>
+        </div>
+        <div class="form-group">
+          <label for="senha">Senha</label>
+          <input type="password" class="form-control" id="senha" name="senha"
+                 placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">
+          <i class="fa fa-sign-in"></i> Entrar
+        </button>
+        <div class="text-center mt-3">
+          <a href="{{ url_for('reset.esqueci_senha') }}" class="small text-muted">Esqueci minha senha</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

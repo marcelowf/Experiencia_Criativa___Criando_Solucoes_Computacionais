@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Relatório de Triagem — {{ gerado_em.strftime('%d/%m/%Y') }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 14mm 22mm 14mm;
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font-size: 9pt;
+      color: #64748B;
+    }
+    @bottom-left {
+      content: "Triagem SXF — Gerado em {{ gerado_em.strftime('%d/%m/%Y') }} por {{ gerado_por }}";
+      font-size: 9pt;
+      color: #64748B;
+    }
+  }
+  body { font-family: 'Helvetica', Arial, sans-serif; color: #0F172A; font-size: 10pt; }
+  h1 { color: #2563EB; font-size: 18pt; margin: 0 0 4pt 0; }
+  h2 { color: #0F172A; font-size: 13pt; margin: 18pt 0 6pt 0; border-bottom: 1pt solid #E2E8F0; padding-bottom: 4pt; }
+  .subtitle { color: #64748B; font-size: 10pt; margin-bottom: 12pt; }
+
+  .filtros { background: #F1F5F9; border-radius: 6pt; padding: 8pt 10pt; font-size: 9pt; }
+  .filtros span { display: inline-block; margin-right: 14pt; }
+  .filtros strong { color: #2563EB; }
+
+  .kpis { display: flex; flex-wrap: wrap; gap: 8pt; margin: 12pt 0; }
+  .kpi {
+    flex: 1; min-width: 30%;
+    border: 1pt solid #E2E8F0;
+    border-radius: 6pt;
+    padding: 8pt;
+  }
+  .kpi-val { font-size: 18pt; font-weight: bold; color: #2563EB; }
+  .kpi-lbl { font-size: 9pt; color: #64748B; text-transform: uppercase; }
+
+  .charts img { max-width: 100%; height: auto; margin-bottom: 14pt; page-break-inside: avoid; }
+  .chart-block { page-break-inside: avoid; margin-bottom: 12pt; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  th, td { border: 1pt solid #E2E8F0; padding: 4pt 6pt; text-align: left; }
+  th { background: #2563EB; color: white; }
+  tr:nth-child(even) td { background: #F8FAFC; }
+  .badge { display: inline-block; padding: 2pt 6pt; border-radius: 4pt; font-size: 8pt; font-weight: bold; }
+  .badge-danger { background: #FEE2E2; color: #DC2626; }
+  .badge-success { background: #DCFCE7; color: #16A34A; }
+  .empty { text-align: center; color: #94A3B8; padding: 30pt; }
+</style>
+</head>
+<body>
+
+<h1>Relatório de Triagem — Síndrome do X Frágil</h1>
+<div class="subtitle">Gerado em {{ gerado_em.strftime('%d/%m/%Y') }} por {{ gerado_por }}
+{% if anonimizado %} · <strong style="color:#D97706;">Dados pessoais mascarados (LGPD)</strong>{% endif %}
+</div>
+
+{% set filtros_aplicados = filtros.items() | rejectattr('1', 'equalto', '') | list %}
+{% if filtros_aplicados %}
+<div class="filtros">
+  <strong>Filtros aplicados:</strong>
+  {% for k, v in filtros_aplicados %}
+    <span>{{ k }}: <strong>{{ v }}</strong></span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Indicadores</h2>
+<div class="kpis">
+  <div class="kpi"><div class="kpi-val">{{ kpis.total }}</div><div class="kpi-lbl">Total</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#DC2626;">{{ kpis.encaminhar }}</div><div class="kpi-lbl">Encaminhar</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#16A34A;">{{ kpis.nao_encaminhar }}</div><div class="kpi-lbl">Não Encaminhar</div></div>
+  <div class="kpi"><div class="kpi-val">{{ kpis.pct_encaminhar }}%</div><div class="kpi-lbl">% Encaminhamento</div></div>
+  <div class="kpi"><div class="kpi-val">{{ '%.4f'|format(kpis.score_medio) }}</div><div class="kpi-lbl">Score médio</div></div>
+  <div class="kpi"><div class="kpi-val">{{ '%.4f'|format(kpis.score_mediano) }}</div><div class="kpi-lbl">Score mediano</div></div>
+</div>
+
+<h2>Análise gráfica</h2>
+<div class="charts">
+  <div class="chart-block"><img src="data:image/png;base64,{{ charts.por_mes }}" alt="Por mês"></div>
+  <div class="chart-block"><img src="data:image/png;base64,{{ charts.recomendacao }}" alt="Recomendação"></div>
+  <div class="chart-block"><img src="data:image/png;base64,{{ charts.sintomas }}" alt="Frequência sintomas"></div>
+  <div class="chart-block"><img src="data:image/png;base64,{{ charts.histograma }}" alt="Histograma"></div>
+  <div class="chart-block"><img src="data:image/png;base64,{{ charts.sexo }}" alt="Por sexo"></div>
+  {% if is_admin and charts.profissional %}
+  <div class="chart-block"><img src="data:image/png;base64,{{ charts.profissional }}" alt="Por profissional"></div>
+  {% endif %}
+</div>
+
+<h2>Avaliações ({{ tabela|length }})</h2>
+{% if tabela %}
+<table>
+  <thead>
+    <tr>
+      <th>Data</th>
+      <th>Paciente</th>
+      <th>CPF</th>
+      <th>Sexo</th>
+      <th>Idade</th>
+      <th>Score</th>
+      <th>Recomendação</th>
+      {% if is_admin %}<th>Profissional</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in tabela %}
+    <tr>
+      <td>{{ r.data.strftime('%d/%m/%Y') }}</td>
+      <td>{{ r.paciente }}</td>
+      <td>{{ r.cpf }}</td>
+      <td>{{ r.sexo }}</td>
+      <td>{{ r.idade }}</td>
+      <td>{{ '%.4f'|format(r.score) }}</td>
+      <td>
+        {% if r.recomendacao == 'ENCAMINHAR' %}
+          <span class="badge badge-danger">ENCAMINHAR</span>
+        {% else %}
+          <span class="badge badge-success">NÃO ENCAMINHAR</span>
+        {% endif %}
+      </td>
+      {% if is_admin %}<td>{{ r.profissional }}</td>{% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">Nenhuma avaliação encontrada com os filtros aplicados.</div>
+{% endif %}
+
+</body>
+</html>

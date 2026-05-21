@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}<title>Sintomas — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Sintomas Clínicos</h1>
+    <p class="page-subtitle">
+      Gerencie os sintomas usados no cálculo do score
+      {% if versao %}
+      · Versão ativa: <span class="badge badge-primary">{{ versao.nome }}</span>
+      desde {{ versao.criada_em.strftime('%d/%m/%Y') }}
+      {% endif %}
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('sintoma.versoes') }}" class="btn btn-secondary">
+      <i class="fa fa-history"></i> Histórico de Versões
+    </a>
+    <a href="{{ url_for('sintoma.novo') }}" class="btn btn-primary">
+      <i class="fa fa-plus"></i> Novo Sintoma
+    </a>
+  </div>
+</div>
+
+<div class="alert alert-info">
+  <i class="fa fa-info-circle"></i>
+  <strong>Atenção:</strong> os pesos derivam de validação científica (Random Forest, Herai/PUCPR).
+  Alterações afetam diretamente o cálculo de futuras avaliações.
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <table id="tabela-sintomas" class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th class="d-none d-md-table-cell">Chave</th>
+          <th class="text-center">Peso ♂</th>
+          <th class="text-center">Peso ♀</th>
+          <th class="text-center">Status</th>
+          <th class="text-center">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sintomas %}
+        <tr>
+          <td>{{ s.label }}</td>
+          <td class="d-none d-md-table-cell"><code>{{ s.chave }}</code></td>
+          <td class="text-center">{{ '%.2f'|format(s.peso_masculino) if s.peso_masculino is not none else '—' }}</td>
+          <td class="text-center">{{ '%.2f'|format(s.peso_feminino) if s.peso_feminino is not none else '—' }}</td>
+          <td class="text-center">
+            {% if s.ativo %}
+              <span class="badge badge-success">Ativo</span>
+            {% else %}
+              <span class="badge badge-secondary">Inativo</span>
+            {% endif %}
+          </td>
+          <td class="text-center" style="white-space:nowrap;">
+            <a href="{{ url_for('sintoma.editar', id=s.id) }}" class="btn btn-sm btn-warning" title="Editar">
+              <i class="fa fa-pencil"></i>
+            </a>
+            <form method="POST" action="{{ url_for('sintoma.toggle', id=s.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm {{ 'btn-secondary' if s.ativo else 'btn-success' }}"
+                      title="{{ 'Desativar' if s.ativo else 'Ativar' }}">
+                <i class="fa {{ 'fa-toggle-off' if s.ativo else 'fa-toggle-on' }}"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $('#tabela-sintomas').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+    order: [[2, 'desc']],
+    columnDefs: [{ orderable: false, targets: -1 }]
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}<title>Nova Avaliação — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Nova Avaliação de Triagem</h1>
+    <p class="page-subtitle">{{ paciente.nome }} · {{ 'Masculino' if paciente.sexo == 'M' else 'Feminino' }} · {{ paciente.data_nascimento.strftime('%d/%m/%Y') }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('paciente.detalhe', id=paciente.id) }}" class="btn btn-secondary">
+      <i class="fa fa-arrow-left"></i> Cancelar
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-success text-white">
+    <i class="fa fa-stethoscope"></i> Marque os sintomas <strong>presentes</strong> no paciente
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('avaliacao.processar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="id_paciente" value="{{ paciente.id }}">
+
+      <div class="symptom-grid" id="symptomGrid">
+        {% for s in sintomas %}
+        <label class="symptom-item" id="label-sintoma-{{ s.id }}">
+          <input type="checkbox" name="sintoma_{{ s.id }}" id="sintoma_{{ s.id }}">
+          <span class="symptom-check"><i class="fa fa-check"></i></span>
+          <span class="symptom-label">
+            {{ s.label }}
+            {% if s.descricao_clinica %}
+            <i class="fa fa-info-circle text-info ml-1"
+               style="cursor:help;"
+               data-toggle="tooltip" data-placement="top"
+               title="{{ s.descricao_clinica }}"></i>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div style="border-top:1px solid var(--border); padding-top:20px; display:flex; justify-content:flex-end;">
+        <button type="submit" class="btn btn-success btn-lg">
+          <i class="fa fa-calculator"></i> Calcular Score
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.symptom-item').forEach(function(label) {
+    var cb = label.querySelector('input[type=checkbox]');
+    cb.addEventListener('change', function() {
+      label.classList.toggle('checked', cb.checked);
+    });
+  });
+  // Tooltips Bootstrap (so para os ícones de info)
+  $(function () {
+    $('[data-toggle="tooltip"]').tooltip();
+  });
+</script>
+{% endblock %}
