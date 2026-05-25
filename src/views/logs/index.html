@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}<title>Auditoria — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Logs de Auditoria</h1>
+    <p class="page-subtitle">Últimos 500 registros</p>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+  <div class="card-header">Filtros</div>
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('logs.index') }}">
+      <div class="row">
+        <div class="col-sm-6 col-lg-2 mb-3">
+          <label>Data início</label>
+          <input type="date" class="form-control" name="data_inicio"
+                 value="{{ request.args.get('data_inicio', '') }}">
+        </div>
+        <div class="col-sm-6 col-lg-2 mb-3">
+          <label>Data fim</label>
+          <input type="date" class="form-control" name="data_fim"
+                 value="{{ request.args.get('data_fim', '') }}">
+        </div>
+        <div class="col-sm-6 col-lg-3 mb-3">
+          <label>Usuário</label>
+          <select class="form-control" name="id_usuario">
+            <option value="">Todos</option>
+            {% for u in usuarios %}
+            <option value="{{ u.id }}" {{ 'selected' if request.args.get('id_usuario') == u.id|string }}>
+              {{ u.nome }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-lg-2 mb-3">
+          <label>Ação</label>
+          <select class="form-control" name="acao">
+            <option value="">Todas</option>
+            {% for a in acoes %}
+            <option value="{{ a }}" {{ 'selected' if request.args.get('acao') == a }}>{{ a }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-lg-2 mb-3">
+          <label>Entidade</label>
+          <select class="form-control" name="entidade">
+            <option value="">Todas</option>
+            {% for e in entidades %}
+            <option value="{{ e }}" {{ 'selected' if request.args.get('entidade') == e }}>{{ e }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-lg-1 mb-3 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa fa-filter"></i>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if logs %}
+<div class="card">
+  <div class="card-body p-0">
+    <table id="tabela-logs" class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th>Data/Hora</th>
+          <th>Usuário</th>
+          <th>Ação</th>
+          <th>Entidade</th>
+          <th class="d-none d-md-table-cell">ID</th>
+          <th class="d-none d-lg-table-cell">IP</th>
+          <th class="d-none d-md-table-cell">Detalhes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in logs %}
+        <tr>
+          <td>{{ l.data_hora.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+          <td>{{ l.usuario.nome if l.usuario else '—' }}</td>
+          <td>
+            {% if l.acao == 'LOGIN_FALHO' %}<span class="badge badge-danger">{{ l.acao }}</span>
+            {% elif l.acao == 'DELETE' %}<span class="badge badge-warning">{{ l.acao }}</span>
+            {% elif l.acao == 'CREATE' %}<span class="badge badge-success">{{ l.acao }}</span>
+            {% elif l.acao == 'UPDATE' %}<span class="badge badge-info">{{ l.acao }}</span>
+            {% else %}<span class="badge badge-secondary">{{ l.acao }}</span>{% endif %}
+          </td>
+          <td>{{ l.entidade or '—' }}</td>
+          <td class="d-none d-md-table-cell">{{ l.id_entidade or '—' }}</td>
+          <td class="d-none d-lg-table-cell"><small>{{ l.ip or '—' }}</small></td>
+          <td class="d-none d-md-table-cell">
+            {% if l.detalhes %}
+              <small><code style="white-space:pre-wrap;">{{ l.detalhes }}</code></small>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon"><i class="fa fa-history"></i></div>
+  <div class="empty-state-title">Nenhum log encontrado</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  $('#tabela-logs').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+    order: [[0, 'desc']],
+    pageLength: 25
+  });
+</script>
+{% endblock %}

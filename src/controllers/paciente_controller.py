@@ -1,7 +1,7 @@
 import re
-from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
+from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, jsonify
 from flask_login import login_required, current_user
-from models.models import db, Paciente
+from models.models import db, Paciente, Responsavel
 from controllers.audit import log_audit
 from datetime import date
 
@@ -29,6 +29,44 @@ def _cpf_digitos_validos(digitos: str) -> bool:
     return True
 
 
+def _resolver_responsavel(form):
+    """Le do form e devolve o id do Responsavel (ou None se nao informado).
+
+    Estrategia:
+      - Se `responsavel_id` foi enviado (escolha via autocomplete), usa direto.
+      - Se `resp_cpf` foi enviado e bate com Responsavel existente, reaproveita.
+      - Senao, se `resp_nome` foi preenchido, cria novo Responsavel.
+    """
+    resp_id = (form.get('responsavel_id') or '').strip()
+    if resp_id:
+        existente = db.session.get(Responsavel, int(resp_id))
+        if existente:
+            return existente.id
+
+    nome = (form.get('resp_nome') or '').strip()
+    cpf_raw = (form.get('resp_cpf') or '').strip()
+    cpf = _normalizar_cpf(cpf_raw) if cpf_raw else None
+
+    if cpf:
+        existente = Responsavel.query.filter_by(cpf=cpf).first()
+        if existente:
+            return existente.id
+
+    if not nome:
+        return None
+
+    resp = Responsavel(
+        nome=nome,
+        cpf=cpf,
+        email=(form.get('resp_email') or '').strip() or None,
+        telefone=(form.get('resp_telefone') or '').strip() or None,
+        parentesco=(form.get('resp_parentesco') or '').strip() or None,
+    )
+    db.session.add(resp)
+    db.session.flush()
+    return resp.id
+
+
 def _normalizar_cpf(raw):
     """Aceita '000.000.000-00' ou '00000000000'. Retorna formatado ou None se invalido.
 
@@ -42,6 +80,24 @@ def _normalizar_cpf(raw):
     if not _cpf_digitos_validos(so_digitos):
         return None
     return f"{so_digitos[0:3]}.{so_digitos[3:6]}.{so_digitos[6:9]}-{so_digitos[9:11]}"
+
+
+@paciente_bp.route('/responsaveis/buscar')
+@login_required
+def buscar_responsaveis():
+    termo = (request.args.get('q') or '').strip()
+    if not termo:
+        return jsonify([])
+    like = f'%{termo}%'
+    rows = (Responsavel.query
+            .filter(db.or_(Responsavel.nome.ilike(like), Responsavel.cpf == termo))
+            .order_by(Responsavel.nome)
+            .limit(10)
+            .all())
+    return jsonify([
+        {'id': r.id, 'nome': r.nome, 'cpf': r.cpf, 'parentesco': r.parentesco}
+        for r in rows
+    ])
 
 
 @paciente_bp.route('/')
@@ -119,10 +175,10 @@ def novo():
             return render_template('pacientes/form.html', paciente=None, form_data=request.form, acao='Cadastrar Paciente')
         sexo = request.form['sexo']
         data_nasc = date.fromisoformat(request.form['data_nascimento'])
-        responsavel = request.form.get('responsavel', '').strip()
+        id_responsavel = _resolver_responsavel(request.form)
         paciente = Paciente(
             nome=nome, cpf=cpf, sexo=sexo, data_nascimento=data_nasc,
-            responsavel=responsavel, id_usuario=current_user.id,
+            id_responsavel=id_responsavel, id_usuario=current_user.id,
             consentimento_dado_em=datetime.utcnow(),
         )
         db.session.add(paciente)
@@ -130,6 +186,7 @@ def novo():
         log_audit('CREATE', entidade='paciente', id_entidade=paciente.id, detalhes={
             'nome': nome, 'cpf': cpf, 'sexo': sexo,
             'data_nascimento': data_nasc.isoformat(),
+            'id_responsavel': id_responsavel,
         })
         flash(f'Paciente {nome} cadastrado com sucesso.', 'success')
         return redirect(url_for('paciente.lista'))
@@ -154,18 +211,18 @@ def editar(id):
         antes = {
             'nome': paciente.nome, 'cpf': paciente.cpf, 'sexo': paciente.sexo,
             'data_nascimento': paciente.data_nascimento.isoformat(),
-            'responsavel': paciente.responsavel,
+            'id_responsavel': paciente.id_responsavel,
         }
         paciente.nome = request.form['nome'].strip()
         paciente.cpf = cpf
         paciente.sexo = request.form['sexo']
         paciente.data_nascimento = date.fromisoformat(request.form['data_nascimento'])
-        paciente.responsavel = request.form.get('responsavel', '').strip()
+        paciente.id_responsavel = _resolver_responsavel(request.form)
         db.session.commit()
         depois = {
             'nome': paciente.nome, 'cpf': paciente.cpf, 'sexo': paciente.sexo,
             'data_nascimento': paciente.data_nascimento.isoformat(),
-            'responsavel': paciente.responsavel,
+            'id_responsavel': paciente.id_responsavel,
         }
         log_audit('UPDATE', entidade='paciente', id_entidade=paciente.id,
                   detalhes={'antes': antes, 'depois': depois})

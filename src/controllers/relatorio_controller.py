@@ -11,7 +11,9 @@ from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as XLImage
 from sqlalchemy.orm import joinedload
 
-from models.models import Usuario, Paciente, Sintoma, Avaliacao, SintomaAvaliacao
+from werkzeug.datastructures import ImmutableMultiDict
+
+from models.models import Usuario, Paciente, Sintoma, Avaliacao, SintomaAvaliacao, VersaoPesos
 from controllers.relatorio_stats import (
     montar_query, calcular_kpis, dados_por_mes, dados_por_recomendacao,
     dados_por_sexo, histograma_scores, frequencia_sintomas, por_profissional,
@@ -32,8 +34,9 @@ def _filtros_form():
     else:
         pacientes = Paciente.query.filter_by(id_usuario=current_user.id).order_by(Paciente.nome).all()
     sintomas = Sintoma.query.order_by(Sintoma.label).all()
+    versoes = VersaoPesos.query.order_by(VersaoPesos.criado_em.desc()).all()
     return {'usuarios': usuarios, 'pacientes': pacientes, 'sintomas': sintomas,
-            'faixas': [f[0] for f in FAIXAS_ETARIAS]}
+            'versoes': versoes, 'faixas': [f[0] for f in FAIXAS_ETARIAS]}
 
 
 # ---------- rotas ----------
@@ -47,6 +50,45 @@ def index():
                            avaliacoes=avaliacoes,
                            kpis=kpis,
                            **_filtros_form())
+
+
+def _args_com_versao(base_args, versao_id):
+    """Clona request.args fixando id_versao_pesos = [versao_id]."""
+    pares = [(k, v) for k, v in base_args.items(multi=True) if k != 'id_versao_pesos']
+    pares.append(('id_versao_pesos', str(versao_id)))
+    return ImmutableMultiDict(pares)
+
+
+@relatorio_bp.route('/comparativo')
+@login_required
+def comparativo():
+    versoes = VersaoPesos.query.order_by(VersaoPesos.criado_em.desc()).all()
+    versao_a_id = request.args.get('versao_a', type=int)
+    versao_b_id = request.args.get('versao_b', type=int)
+
+    dados = {}
+    for chave, vid in (('a', versao_a_id), ('b', versao_b_id)):
+        if not vid:
+            dados[chave] = None
+            continue
+        versao = VersaoPesos.query.get(vid)
+        if not versao:
+            dados[chave] = None
+            continue
+        avals = montar_query(_args_com_versao(request.args, vid), current_user).all()
+        dados[chave] = {
+            'versao': versao,
+            'kpis': calcular_kpis(avals),
+            'recomendacao': dados_por_recomendacao(avals),
+            'sexo': dados_por_sexo(avals),
+            'histograma': histograma_scores(avals),
+        }
+
+    return render_template('relatorios/comparativo.html',
+                           versoes=versoes,
+                           versao_a=versao_a_id,
+                           versao_b=versao_b_id,
+                           dados=dados)
 
 
 @relatorio_bp.route('/api/dados')

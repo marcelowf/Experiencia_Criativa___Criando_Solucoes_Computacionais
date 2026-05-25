@@ -1,0 +1,115 @@
+{% extends "publico/base.html" %}
+{% block content %}
+{% set fd = form_data or {} %}
+<div class="card card-publico">
+  <div class="card-body">
+    <p class="text-muted small mb-3">
+      Preencha seus dados abaixo. Estes dados serão enviados ao profissional que gerou este link.
+    </p>
+
+    <form method="POST" action="{{ url_for('publico.cadastro_paciente', token=token) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-group">
+        <label for="nome">Nome completo <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="nome" name="nome"
+               value="{{ fd.get('nome', '') }}" required autocomplete="name">
+      </div>
+
+      <div class="form-group">
+        <label for="cpf">CPF <span class="text-danger">*</span></label>
+        <input type="text" inputmode="numeric" class="form-control" id="cpf" name="cpf"
+               value="{{ fd.get('cpf', '') }}" placeholder="000.000.000-00"
+               maxlength="14" required>
+      </div>
+
+      <div class="form-group">
+        <label for="sexo">Sexo <span class="text-danger">*</span></label>
+        <select class="form-control" id="sexo" name="sexo" required>
+          {% set s = fd.get('sexo', '') %}
+          <option value="">Selecione...</option>
+          <option value="M" {{ 'selected' if s == 'M' }}>Masculino</option>
+          <option value="F" {{ 'selected' if s == 'F' }}>Feminino</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="data_nascimento">Data de nascimento <span class="text-danger">*</span></label>
+        <input type="date" class="form-control" id="data_nascimento" name="data_nascimento"
+               value="{{ fd.get('data_nascimento', '') }}" required>
+      </div>
+
+      <fieldset class="form-group p-3" style="border:1px solid #e5e7eb; border-radius:6px;">
+        <legend class="w-auto px-2" style="font-size:0.9rem;">Responsável (opcional)</legend>
+        <small class="text-muted d-block mb-2">
+          Preencha apenas se o paciente é menor de idade ou tem responsável legal.
+        </small>
+        <div class="form-group mb-2">
+          <label for="resp_nome">Nome</label>
+          <input type="text" class="form-control" id="resp_nome" name="resp_nome"
+                 value="{{ fd.get('resp_nome', '') }}">
+        </div>
+        <div class="form-group mb-2">
+          <label for="resp_cpf">CPF</label>
+          <input type="text" inputmode="numeric" class="form-control"
+                 id="resp_cpf" name="resp_cpf" value="{{ fd.get('resp_cpf', '') }}"
+                 placeholder="000.000.000-00" maxlength="14">
+        </div>
+        <div class="form-group mb-2">
+          <label for="resp_email">E-mail</label>
+          <input type="email" class="form-control" id="resp_email" name="resp_email"
+                 value="{{ fd.get('resp_email', '') }}">
+        </div>
+        <div class="form-group mb-2">
+          <label for="resp_telefone">Telefone</label>
+          <input type="tel" inputmode="tel" class="form-control"
+                 id="resp_telefone" name="resp_telefone"
+                 value="{{ fd.get('resp_telefone', '') }}">
+        </div>
+        <div class="form-group mb-0">
+          <label for="resp_parentesco">Parentesco</label>
+          <select class="form-control" id="resp_parentesco" name="resp_parentesco">
+            {% set p = fd.get('resp_parentesco', '') %}
+            <option value=""></option>
+            <option value="mae" {{ 'selected' if p == 'mae' }}>Mãe</option>
+            <option value="pai" {{ 'selected' if p == 'pai' }}>Pai</option>
+            <option value="tutor" {{ 'selected' if p == 'tutor' }}>Tutor(a)</option>
+            <option value="irmao" {{ 'selected' if p == 'irmao' }}>Irmão(ã)</option>
+            <option value="outro" {{ 'selected' if p == 'outro' }}>Outro</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <div class="alert alert-warning" style="font-size:0.9rem;">
+        <strong><i class="fa fa-shield"></i> Consentimento (LGPD)</strong>
+        <div class="custom-control custom-checkbox mt-2">
+          <input type="checkbox" class="custom-control-input" id="consentimento"
+                 name="consentimento" required>
+          <label class="custom-control-label" for="consentimento">
+            Confirmo que autorizo o tratamento dos meus dados clínicos pelo profissional
+            que me forneceu este link, conforme a Lei Geral de Proteção de Dados (LGPD).
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">
+        <i class="fa fa-paper-plane"></i> Enviar cadastro
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  function maskCpf(input) {
+    if (!input) return;
+    input.addEventListener('blur', function() {
+      var v = (this.value || '').replace(/\D/g, '');
+      if (v.length === 11) {
+        this.value = v.substr(0,3)+'.'+v.substr(3,3)+'.'+v.substr(6,3)+'-'+v.substr(9,2);
+      }
+    });
+  }
+  maskCpf(document.getElementById('cpf'));
+  maskCpf(document.getElementById('resp_cpf'));
+</script>
+{% endblock %}

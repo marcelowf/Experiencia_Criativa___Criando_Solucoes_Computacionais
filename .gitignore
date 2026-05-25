@@ -22,7 +22,7 @@ build/
 Thumbs.db
 *.log
 *.mcp
-logs/
+logs_a
 *.key
 *.pem
 **/.terraform/

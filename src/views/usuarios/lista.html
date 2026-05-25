@@ -41,14 +41,22 @@
               <i class="fa fa-pencil"></i>
             </a>
             {% if u.id != current_user.id %}
-            <form method="POST" action="{{ url_for('usuario.remover', id=u.id) }}"
-                  style="display:inline;"
-                  onsubmit="return confirm('Remover {{ u.nome }}?')">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-sm btn-danger" title="Remover">
-                <i class="fa fa-trash"></i>
-              </button>
-            </form>
+              {% set ultimo_admin = u.perfil == 'admin' and total_admins <= 1 %}
+              {% if ultimo_admin %}
+                <button type="button" class="btn btn-sm btn-danger" disabled
+                        title="Último administrador — não pode ser removido">
+                  <i class="fa fa-trash"></i>
+                </button>
+              {% else %}
+                <form method="POST" action="{{ url_for('usuario.remover', id=u.id) }}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Remover {{ u.nome }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-danger" title="Remover">
+                    <i class="fa fa-trash"></i>
+                  </button>
+                </form>
+              {% endif %}
             {% endif %}
           </td>
         </tr>

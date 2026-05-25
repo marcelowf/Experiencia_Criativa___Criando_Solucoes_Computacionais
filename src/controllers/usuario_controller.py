@@ -6,12 +6,22 @@ from controllers.audit import admin_required, log_audit
 usuario_bp = Blueprint('usuario', __name__, url_prefix='/usuarios')
 
 
+def _total_admins():
+    return Usuario.query.filter_by(perfil='admin').count()
+
+
+def _eh_ultimo_admin(usuario):
+    return usuario.perfil == 'admin' and _total_admins() <= 1
+
+
 @usuario_bp.route('/')
 @login_required
 @admin_required
 def lista():
     usuarios = Usuario.query.order_by(Usuario.nome).all()
-    return render_template('usuarios/lista.html', usuarios=usuarios)
+    return render_template('usuarios/lista.html',
+                           usuarios=usuarios,
+                           total_admins=_total_admins())
 
 
 @usuario_bp.route('/novo', methods=['GET', 'POST'])
@@ -52,8 +62,13 @@ def editar(id):
     usuario = db.get_or_404(Usuario, id)
     if request.method == 'POST':
         antes = {'nome': usuario.nome, 'perfil': usuario.perfil}
+        novo_perfil = request.form.get('perfil', 'padrao')
+        if (usuario.perfil == 'admin' and novo_perfil != 'admin'
+                and _eh_ultimo_admin(usuario)):
+            flash('Não é possível remover o perfil admin do último administrador.', 'danger')
+            return redirect(url_for('usuario.editar', id=usuario.id))
         usuario.nome = request.form['nome'].strip()
-        usuario.perfil = request.form.get('perfil', 'padrao')
+        usuario.perfil = novo_perfil
         nova_senha = request.form.get('senha', '').strip()
         senha_alterada = bool(nova_senha)
         if senha_alterada:
@@ -70,7 +85,8 @@ def editar(id):
         })
         flash('Usuário atualizado.', 'success')
         return redirect(url_for('usuario.lista'))
-    return render_template('usuarios/form.html', usuario=usuario, acao='Salvar Alterações')
+    return render_template('usuarios/form.html', usuario=usuario, acao='Salvar Alterações',
+                           eh_ultimo_admin=_eh_ultimo_admin(usuario))
 
 
 @usuario_bp.route('/<int:id>/remover', methods=['POST'])
@@ -80,6 +96,9 @@ def remover(id):
     usuario = db.get_or_404(Usuario, id)
     if usuario.id == current_user.id:
         flash('Você não pode remover sua própria conta.', 'danger')
+        return redirect(url_for('usuario.lista'))
+    if _eh_ultimo_admin(usuario):
+        flash('Não é possível remover o último administrador do sistema.', 'danger')
         return redirect(url_for('usuario.lista'))
     info = {'nome': usuario.nome, 'email': usuario.email}
     db.session.delete(usuario)

@@ -35,7 +35,8 @@
           </div>
           <div class="form-group">
             <label for="perfil">Perfil <span class="text-danger">*</span></label>
-            <select class="form-control" id="perfil" name="perfil" required>
+            <select class="form-control" id="perfil" name="perfil" required
+                    {{ 'disabled' if eh_ultimo_admin }}>
               <option value="padrao" {{ 'selected' if usuario and usuario.perfil == 'padrao' }}>
                 Padrão
               </option>
@@ -43,6 +44,10 @@
                 Administrador
               </option>
             </select>
+            {% if eh_ultimo_admin %}
+              <input type="hidden" name="perfil" value="admin">
+              <small class="text-muted">Este é o último administrador — o perfil não pode ser alterado.</small>
+            {% endif %}
           </div>
           <div class="d-flex justify-content-between">
             <a href="{{ url_for('usuario.lista') }}" class="btn btn-secondary">

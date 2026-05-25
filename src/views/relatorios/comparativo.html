@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}<title>Comparativo de Versões — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Comparativo entre Versões de Pesos</h1>
+    <p class="page-subtitle">Compare KPIs e distribuições de duas versões lado a lado.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('relatorio.index') }}" class="btn btn-secondary">
+      <i class="fa fa-arrow-left"></i> Voltar
+    </a>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('relatorio.comparativo') }}">
+      <div class="row">
+        <div class="col-md-5 mb-3">
+          <label>Versão A</label>
+          <select class="form-control" name="versao_a">
+            <option value="">— selecione —</option>
+            {% for v in versoes %}
+            <option value="{{ v.id }}" {{ 'selected' if versao_a == v.id }}>
+              {{ v.nome }}{% if v.ativa %} (ativa){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-5 mb-3">
+          <label>Versão B</label>
+          <select class="form-control" name="versao_b">
+            <option value="">— selecione —</option>
+            {% for v in versoes %}
+            <option value="{{ v.id }}" {{ 'selected' if versao_b == v.id }}>
+              {{ v.nome }}{% if v.ativa %} (ativa){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2 mb-3 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa fa-balance-scale"></i> Comparar
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if dados.a and dados.b %}
+<div class="row">
+  {% for col, chave in [('A','a'), ('B','b')] %}
+  {% set d = dados[chave] %}
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-primary text-white">
+        <strong>Versão {{ col }}</strong> — {{ d.versao.nome }}{% if d.versao.ativa %} (ativa){% endif %}
+        <small class="text-white-50 float-right">Criada em {{ d.versao.criado_em.strftime('%d/%m/%Y') }}</small>
+      </div>
+      <div class="card-body">
+        <div class="row text-center mb-3">
+          <div class="col-6 col-md-4 mb-2">
+            <div class="text-muted small">Total</div>
+            <div class="h4">{{ d.kpis.total }}</div>
+          </div>
+          <div class="col-6 col-md-4 mb-2">
+            <div class="text-muted small">Encaminhar</div>
+            <div class="h4 text-danger">{{ d.kpis.encaminhar }}</div>
+          </div>
+          <div class="col-6 col-md-4 mb-2">
+            <div class="text-muted small">Não Encaminhar</div>
+            <div class="h4 text-success">{{ d.kpis.nao_encaminhar }}</div>
+          </div>
+          <div class="col-6 col-md-4 mb-2">
+            <div class="text-muted small">% Encaminhar</div>
+            <div class="h4">{{ d.kpis.pct_encaminhar }}%</div>
+          </div>
+          <div class="col-6 col-md-4 mb-2">
+            <div class="text-muted small">Score médio</div>
+            <div class="h4">{{ '%.4f'|format(d.kpis.score_medio) }}</div>
+          </div>
+          <div class="col-6 col-md-4 mb-2">
+            <div class="text-muted small">Score mediano</div>
+            <div class="h4">{{ '%.4f'|format(d.kpis.score_mediano) }}</div>
+          </div>
+        </div>
+        <canvas id="chart-rec-{{ chave }}" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% elif versao_a or versao_b %}
+<div class="alert alert-warning">
+  Selecione <strong>duas</strong> versões para comparar.
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon"><i class="fa fa-balance-scale"></i></div>
+  <div class="empty-state-title">Selecione duas versões</div>
+  <div class="empty-state-text">Escolha as versões A e B acima e clique em Comparar.</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if dados.a and dados.b %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const corDanger = '#DC2626', corSuccess = '#16A34A';
+  {% for chave in ['a', 'b'] %}
+  new Chart(document.getElementById('chart-rec-{{ chave }}'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ dados[chave].recomendacao['labels']|tojson }},
+      datasets: [{
+        data: {{ dados[chave].recomendacao['values']|tojson }},
+        backgroundColor: [corDanger, corSuccess]
+      }]
+    },
+    options: { responsive: true }
+  });
+  {% endfor %}
+</script>
+{% endif %}
+{% endblock %}

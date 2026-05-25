@@ -33,9 +33,13 @@
          href="{{ url_for('auth.home') }}">
         <i class="fa fa-home nav-icon"></i> Início
       </a>
-      <a class="sidebar-nav-item {% if request.endpoint and 'paciente' in request.endpoint %}active{% endif %}"
+      <a class="sidebar-nav-item {% if request.endpoint and 'paciente' in request.endpoint and 'qr' not in request.endpoint %}active{% endif %}"
          href="{{ url_for('paciente.lista') }}">
         <i class="fa fa-users nav-icon"></i> Pacientes
+      </a>
+      <a class="sidebar-nav-item {% if request.endpoint and request.endpoint.startswith('qr.') %}active{% endif %}"
+         href="{{ url_for('qr.lista') }}">
+        <i class="fa fa-qrcode nav-icon"></i> QR de cadastro
       </a>
       <a class="sidebar-nav-item {% if request.endpoint == 'relatorio.index' %}active{% endif %}"
          href="{{ url_for('relatorio.index') }}">

@@ -47,9 +47,11 @@ def create_app(config_overrides=None):
     from controllers.sintoma_controller import sintoma_bp
     from controllers.logs_controller import logs_bp
     from controllers.reset_senha_controller import reset_bp
+    from controllers.qr_cadastro_controller import qr_bp, publico_bp
 
     for bp in [auth_bp, paciente_bp, avaliacao_bp, relatorio_bp,
-               usuario_bp, sintoma_bp, logs_bp, reset_bp]:
+               usuario_bp, sintoma_bp, logs_bp, reset_bp,
+               qr_bp, publico_bp]:
         app.register_blueprint(bp)
 
     @app.route('/health')
@@ -78,10 +80,14 @@ def create_app(config_overrides=None):
 
     with app.app_context():
         db.create_all()
+        from controllers.seed_data import (migrar_schema_auditoria,
+                                           migrar_responsavel_string_para_tabela)
+        migrar_schema_auditoria()
         _seed_sintomas()
         _seed_admin()
         _seed_user_preferences()
         _seed_versao_pesos_inicial()
+        migrar_responsavel_string_para_tabela()
 
     return app
 
@@ -89,7 +95,7 @@ def create_app(config_overrides=None):
 def _seed_versao_pesos_inicial():
     from controllers.versoes_pesos import criar_versao_inicial
     admin = Usuario.query.filter_by(email='admin@admin.com').first()
-    criar_versao_inicial(criada_por_id=admin.id if admin else None)
+    criar_versao_inicial(criado_por_id=admin.id if admin else None)
 
 
 def _seed_sintomas():

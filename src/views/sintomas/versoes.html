@@ -37,8 +37,8 @@
         {% for v in versoes %}
         <tr>
           <td><strong>{{ v.nome }}</strong></td>
-          <td>{{ v.criada_em.strftime('%d/%m/%Y %H:%M') }}</td>
-          <td>{{ v.criada_por.nome if v.criada_por else '—' }}</td>
+          <td>{{ v.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>{{ v.criado_por.nome if v.criado_por else '—' }}</td>
           <td>
             {% if v.ativa %}
               <span class="badge badge-success"><i class="fa fa-check"></i> Ativa</span>

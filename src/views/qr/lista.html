@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}<title>QR de cadastro — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">QR de cadastro</h1>
+    <p class="page-subtitle">Gere um QR Code para o paciente preencher o próprio cadastro no celular.</p>
+  </div>
+  <div class="page-header-actions">
+    <form method="POST" action="{{ url_for('qr.gerar') }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary">
+        <i class="fa fa-qrcode"></i> Gerar novo QR
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if linhas %}
+<div class="card">
+  <div class="card-body p-0">
+    <table id="tabela-qr" class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Gerado em</th>
+          <th>Expira em</th>
+          <th>Status</th>
+          <th class="text-center">Pacientes</th>
+          {% if current_user.is_admin %}<th>Emissor</th>{% endif %}
+          <th class="text-center">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in linhas %}
+        {% set qr = linha.qr %}
+        <tr>
+          <td>{{ qr.criado_em.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>{{ qr.expira_em.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>
+            {% if qr.revogado_em %}
+              <span class="badge badge-secondary">Revogado</span>
+            {% elif qr.valido %}
+              <span class="badge badge-success">Ativo</span>
+            {% else %}
+              <span class="badge badge-warning">Expirado</span>
+            {% endif %}
+          </td>
+          <td class="text-center"><strong>{{ linha.pacientes }}</strong></td>
+          {% if current_user.is_admin %}
+          <td>{{ qr.emissor.nome if qr.emissor else '—' }}</td>
+          {% endif %}
+          <td class="text-center" style="white-space:nowrap;">
+            <a href="{{ url_for('qr.detalhe', id=qr.id) }}" class="btn btn-sm btn-info" title="Ver QR">
+              <i class="fa fa-qrcode"></i>
+            </a>
+            {% if qr.valido %}
+            <form method="POST" action="{{ url_for('qr.revogar', id=qr.id) }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Revogar este QR? O link público deixará de funcionar.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm btn-danger" title="Revogar">
+                <i class="fa fa-ban"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon"><i class="fa fa-qrcode"></i></div>
+  <div class="empty-state-title">Nenhum QR gerado ainda</div>
+  <div class="empty-state-text">Gere um QR Code para o paciente abrir no celular e preencher o próprio cadastro.</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if linhas %}
+<script>
+  $('#tabela-qr').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+    order: [[0, 'desc']],
+    columnDefs: [{ orderable: false, targets: -1 }]
+  });
+</script>
+{% endif %}
+{% endblock %}

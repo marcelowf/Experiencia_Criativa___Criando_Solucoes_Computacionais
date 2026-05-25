@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, '..', 'src')))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, '..')))
 
 from controllers.app_controller import create_app
-from models.models import db as _db, Usuario, UserPreference, Paciente, Sintoma
+from models.models import db as _db, Usuario, UserPreference, Paciente, Sintoma, Responsavel
 
 
 @pytest.fixture(scope='session')
@@ -43,10 +43,12 @@ def db(app, _db_session):
         # Apagar tudo respeitando FKs (em ordem reversa)
         from models.models import (LogAuditoria, SintomaAvaliacao, Avaliacao,
                                    SintomaPesoVersao, VersaoPesos,
-                                   UserPreference, Paciente, Usuario, Sintoma)
+                                   UserPreference, Paciente, Responsavel,
+                                   QrCadastroToken, Usuario, Sintoma)
         for model in [LogAuditoria, SintomaAvaliacao, Avaliacao,
                       SintomaPesoVersao, VersaoPesos,
-                      UserPreference, Paciente, Usuario, Sintoma]:
+                      UserPreference, Paciente, Responsavel,
+                      QrCadastroToken, Usuario, Sintoma]:
             _db.session.query(model).delete()
         _db.session.commit()
 

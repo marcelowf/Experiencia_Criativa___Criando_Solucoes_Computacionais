@@ -17,11 +17,11 @@ def _proximo_nome() -> str:
     return f'V{n}'
 
 
-def criar_versao_inicial(criada_por_id=None, notas='Pesos cientificos iniciais (Herai/PUCPR)'):
+def criar_versao_inicial(criado_por_id=None, notas='Pesos cientificos iniciais (Herai/PUCPR)'):
     """Cria V1 com os pesos atuais dos sintomas. Idempotente (no-op se ja existe)."""
     if VersaoPesos.query.count() > 0:
         return None
-    v = VersaoPesos(nome='V1', criada_por_id=criada_por_id,
+    v = VersaoPesos(nome='V1', criado_por_id=criado_por_id,
                     notas=notas, ativa=True)
     db.session.add(v)
     db.session.flush()
@@ -35,7 +35,7 @@ def criar_versao_inicial(criada_por_id=None, notas='Pesos cientificos iniciais (
     return v
 
 
-def criar_nova_versao(criada_por_id: int, notas: str = '') -> VersaoPesos:
+def criar_nova_versao(criado_por_id: int, notas: str = '') -> VersaoPesos:
     """
     Snapshot dos pesos ATUAIS de todos os sintomas como uma nova versao.
     Desativa a anterior, ativa a nova.
@@ -45,7 +45,7 @@ def criar_nova_versao(criada_por_id: int, notas: str = '') -> VersaoPesos:
     # Desativa atual (se existir)
     VersaoPesos.query.filter_by(ativa=True).update({'ativa': False})
 
-    nova = VersaoPesos(nome=_proximo_nome(), criada_por_id=criada_por_id,
+    nova = VersaoPesos(nome=_proximo_nome(), criado_por_id=criado_por_id,
                        notas=notas or None, ativa=True)
     db.session.add(nova)
     db.session.flush()

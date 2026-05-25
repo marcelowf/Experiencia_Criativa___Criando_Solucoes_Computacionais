@@ -28,7 +28,20 @@
         <li class="list-group-item"><strong>CPF:</strong> {{ paciente.cpf }}</li>
         <li class="list-group-item"><strong>Sexo:</strong> {{ 'Masculino' if paciente.sexo == 'M' else 'Feminino' }}</li>
         <li class="list-group-item"><strong>Nascimento:</strong> {{ paciente.data_nascimento.strftime('%d/%m/%Y') }}</li>
-        <li class="list-group-item"><strong>Responsável:</strong> {{ paciente.responsavel or '—' }}</li>
+        {% set resp = paciente.responsavel_obj %}
+        {% if resp %}
+        <li class="list-group-item">
+          <strong>Responsável:</strong> {{ resp.nome }}
+          {% if resp.parentesco %}<span class="badge badge-light">{{ resp.parentesco }}</span>{% endif %}
+          <div class="small text-muted mt-1">
+            {% if resp.cpf %}CPF: {{ resp.cpf }}<br>{% endif %}
+            {% if resp.email %}E-mail: {{ resp.email }}<br>{% endif %}
+            {% if resp.telefone %}Telefone: {{ resp.telefone }}{% endif %}
+          </div>
+        </li>
+        {% else %}
+        <li class="list-group-item"><strong>Responsável:</strong> —</li>
+        {% endif %}
         <li class="list-group-item"><strong>Profissional:</strong> {{ paciente.usuario.nome }}</li>
         {% if paciente.consentimento_dado_em %}
         <li class="list-group-item">

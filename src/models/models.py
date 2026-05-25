@@ -3,6 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import date, datetime
+from sqlalchemy import event
+from sqlalchemy.orm import declared_attr
 
 db = SQLAlchemy()
 
@@ -24,7 +26,35 @@ def validar_forca_senha(senha: str) -> None:
         raise SenhaFracaError('A senha deve conter ao menos um número.')
 
 
-class Usuario(UserMixin, db.Model):
+# ---------- Mixins de auditoria ----------
+
+class Auditable:
+    """Adiciona criado_em / atualizado_em / criado_por_id / atualizado_por_id."""
+    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    atualizado_em = db.Column(db.DateTime, nullable=False,
+                              default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @declared_attr
+    def criado_por_id(cls):
+        return db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+
+    @declared_attr
+    def atualizado_por_id(cls):
+        return db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+
+
+class SoftDeletable:
+    """Adiciona removido_em + propriedade ativo."""
+    removido_em = db.Column(db.DateTime, nullable=True, index=True)
+
+    @property
+    def ativo(self):
+        return self.removido_em is None
+
+
+# ---------- Modelos ----------
+
+class Usuario(UserMixin, Auditable, db.Model):
     __tablename__ = 'usuarios'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(120), nullable=False)
@@ -35,8 +65,10 @@ class Usuario(UserMixin, db.Model):
     token_reset = db.Column(db.String(80), nullable=True, index=True)
     token_reset_expira_em = db.Column(db.DateTime, nullable=True)
 
-    pacientes = db.relationship('Paciente', backref='usuario', lazy=True)
-    avaliacoes = db.relationship('Avaliacao', backref='usuario', lazy=True)
+    pacientes = db.relationship('Paciente', backref='usuario', lazy=True,
+                                foreign_keys='Paciente.id_usuario')
+    avaliacoes = db.relationship('Avaliacao', backref='usuario', lazy=True,
+                                 foreign_keys='Avaliacao.id_usuario')
     preferencias = db.relationship(
         'UserPreference', backref='usuario', uselist=False,
         cascade='all, delete-orphan'
@@ -62,26 +94,35 @@ class UserPreference(db.Model):
     tema = db.Column(db.String(20), nullable=False, default='claro')    # 'claro' | 'escuro' | 'auto'
 
 
-class Paciente(db.Model):
+class Responsavel(Auditable, SoftDeletable, db.Model):
+    __tablename__ = 'responsaveis'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(120), nullable=False, index=True)
+    cpf = db.Column(db.String(14), unique=True, nullable=True, index=True)
+    email = db.Column(db.String(120), nullable=True)
+    telefone = db.Column(db.String(20), nullable=True)
+    parentesco = db.Column(db.String(40), nullable=True)
+
+    pacientes = db.relationship('Paciente', backref='responsavel_obj', lazy=True)
+
+
+class Paciente(Auditable, SoftDeletable, db.Model):
     __tablename__ = 'pacientes'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(120), nullable=False)
     cpf = db.Column(db.String(14), unique=True, nullable=False)
     sexo = db.Column(db.String(1), nullable=False)  # 'M' | 'F'
     data_nascimento = db.Column(db.Date, nullable=False)
-    responsavel = db.Column(db.String(120))
+    responsavel = db.Column(db.String(120))  # legado: nome livre antes de Responsavel
+    id_responsavel = db.Column(db.Integer, db.ForeignKey('responsaveis.id'),
+                               nullable=True, index=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
     consentimento_dado_em = db.Column(db.DateTime, nullable=True)
-    removido_em = db.Column(db.DateTime, nullable=True, index=True)
 
     avaliacoes = db.relationship('Avaliacao', backref='paciente', lazy=True)
 
-    @property
-    def ativo(self):
-        return self.removido_em is None
 
-
-class Avaliacao(db.Model):
+class Avaliacao(Auditable, SoftDeletable, db.Model):
     __tablename__ = 'avaliacoes'
     id = db.Column(db.Integer, primary_key=True)
     id_paciente = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False, index=True)
@@ -91,7 +132,6 @@ class Avaliacao(db.Model):
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
     id_versao_pesos = db.Column(db.Integer, db.ForeignKey('versoes_pesos.id'),
                                 nullable=True, index=True)
-    removido_em = db.Column(db.DateTime, nullable=True, index=True)
 
     versao_pesos = db.relationship('VersaoPesos')
 
@@ -99,12 +139,8 @@ class Avaliacao(db.Model):
         'SintomaAvaliacao', backref='avaliacao', lazy=True, cascade='all, delete-orphan'
     )
 
-    @property
-    def ativo(self):
-        return self.removido_em is None
 
-
-class Sintoma(db.Model):
+class Sintoma(Auditable, SoftDeletable, db.Model):
     """
     Definicao do sintoma. Os campos `peso_masculino`/`peso_feminino` sao uma
     denormalizacao dos pesos da versao ATIVA — fonte canonica do historico
@@ -123,7 +159,7 @@ class Sintoma(db.Model):
         return self.peso_masculino if sexo == 'M' else self.peso_feminino
 
 
-class VersaoPesos(db.Model):
+class VersaoPesos(Auditable, SoftDeletable, db.Model):
     """
     Snapshot imutavel dos pesos cientificos vigentes em um momento.
     Toda avaliacao aponta para a versao usada no calculo.
@@ -132,12 +168,10 @@ class VersaoPesos(db.Model):
     __tablename__ = 'versoes_pesos'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(10), unique=True, nullable=False)  # 'V1', 'V2', ...
-    criada_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
-    criada_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     notas = db.Column(db.Text, nullable=True)
     ativa = db.Column(db.Boolean, nullable=False, default=False, index=True)
 
-    criada_por = db.relationship('Usuario')
+    criado_por = db.relationship('Usuario', foreign_keys='VersaoPesos.criado_por_id')
     pesos = db.relationship('SintomaPesoVersao', backref='versao',
                             lazy=True, cascade='all, delete-orphan')
 
@@ -170,6 +204,26 @@ class SintomaAvaliacao(db.Model):
     sintoma = db.relationship('Sintoma')
 
 
+class QrCadastroToken(Auditable, SoftDeletable, db.Model):
+    """Token publico para um paciente preencher o proprio cadastro via QR Code."""
+    __tablename__ = 'qr_cadastro_tokens'
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    id_usuario_emissor = db.Column(db.Integer, db.ForeignKey('usuarios.id'),
+                                   nullable=False, index=True)
+    tipo = db.Column(db.String(20), nullable=False, default='basico')
+    expira_em = db.Column(db.DateTime, nullable=False, index=True)
+    revogado_em = db.Column(db.DateTime, nullable=True)
+
+    emissor = db.relationship('Usuario', foreign_keys=[id_usuario_emissor])
+
+    @property
+    def valido(self):
+        return (self.revogado_em is None
+                and self.removido_em is None
+                and self.expira_em > datetime.utcnow())
+
+
 class LogAuditoria(db.Model):
     __tablename__ = 'logs'
     id = db.Column(db.Integer, primary_key=True)
@@ -182,3 +236,41 @@ class LogAuditoria(db.Model):
     data_hora = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
     usuario = db.relationship('Usuario')
+
+
+# ---------- Event listeners para auto-popular criado_por/atualizado_por ----------
+
+AUDITABLE_CLASSES = [Usuario, Responsavel, Paciente, Avaliacao, Sintoma, VersaoPesos,
+                     QrCadastroToken]
+
+
+def _current_user_id_ou_none():
+    """Retorna current_user.id se houver request autenticada, senao None."""
+    try:
+        from flask import has_request_context
+        from flask_login import current_user
+        if has_request_context() and getattr(current_user, 'is_authenticated', False):
+            return current_user.id
+    except Exception:
+        pass
+    return None
+
+
+def _audit_before_insert(mapper, connection, target):
+    uid = _current_user_id_ou_none()
+    if uid is not None:
+        if target.criado_por_id is None:
+            target.criado_por_id = uid
+        if target.atualizado_por_id is None:
+            target.atualizado_por_id = uid
+
+
+def _audit_before_update(mapper, connection, target):
+    uid = _current_user_id_ou_none()
+    if uid is not None:
+        target.atualizado_por_id = uid
+
+
+for _cls in AUDITABLE_CLASSES:
+    event.listen(_cls, 'before_insert', _audit_before_insert)
+    event.listen(_cls, 'before_update', _audit_before_update)

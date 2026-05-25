@@ -118,3 +118,104 @@ SINTOMAS_INICIAIS = [
         ),
     },
 ]
+
+
+def migrar_schema_auditoria():
+    """Adiciona colunas de auditoria (criado_em / atualizado_em / criado_por_id /
+    atualizado_por_id / removido_em) em DBs antigos. Idempotente.
+
+    Tambem renomeia VersaoPesos.criada_em -> criado_em e criada_por_id -> criado_por_id.
+    """
+    from sqlalchemy import text, inspect
+    from models.models import db
+
+    AUDIT_TABLES = {
+        'usuarios':       {'auditable': True,  'soft': False},
+        'responsaveis':   {'auditable': True,  'soft': True},
+        'pacientes':      {'auditable': True,  'soft': True},   # ja tinha removido_em
+        'avaliacoes':     {'auditable': True,  'soft': True},   # ja tinha removido_em
+        'sintomas':       {'auditable': True,  'soft': True},
+        'versoes_pesos':  {'auditable': True,  'soft': True},
+    }
+    insp = inspect(db.engine)
+
+    with db.engine.begin() as conn:
+        # rename em versoes_pesos (se ainda nao foi feito)
+        if insp.has_table('versoes_pesos'):
+            vcols = {c['name'] for c in insp.get_columns('versoes_pesos')}
+            if 'criada_em' in vcols and 'criado_em' not in vcols:
+                conn.execute(text('ALTER TABLE versoes_pesos RENAME COLUMN criada_em TO criado_em'))
+            if 'criada_por_id' in vcols and 'criado_por_id' not in vcols:
+                conn.execute(text('ALTER TABLE versoes_pesos RENAME COLUMN criada_por_id TO criado_por_id'))
+
+        # adicionar colunas faltantes
+        insp = inspect(db.engine)  # re-inspect apos rename
+        for tabela, flags in AUDIT_TABLES.items():
+            if not insp.has_table(tabela):
+                continue
+            cols = {c['name'] for c in insp.get_columns(tabela)}
+            adds = []
+            if flags['auditable']:
+                if 'criado_em' not in cols:
+                    adds.append("ADD COLUMN criado_em TIMESTAMP NOT NULL DEFAULT NOW()")
+                if 'atualizado_em' not in cols:
+                    adds.append("ADD COLUMN atualizado_em TIMESTAMP NOT NULL DEFAULT NOW()")
+                if 'criado_por_id' not in cols:
+                    adds.append("ADD COLUMN criado_por_id INTEGER REFERENCES usuarios(id)")
+                if 'atualizado_por_id' not in cols:
+                    adds.append("ADD COLUMN atualizado_por_id INTEGER REFERENCES usuarios(id)")
+            if flags['soft'] and 'removido_em' not in cols:
+                adds.append("ADD COLUMN removido_em TIMESTAMP")
+            if adds:
+                conn.execute(text(f'ALTER TABLE {tabela} ' + ', '.join(adds)))
+
+
+def migrar_responsavel_string_para_tabela():
+    """Move o campo legado Paciente.responsavel (string) para a tabela Responsavel.
+
+    Idempotente: roda no boot e ignora pacientes que ja tem id_responsavel ou
+    nao tem nome de responsavel. Tambem garante a coluna `id_responsavel`
+    em DBs antigos (db.create_all nao executa ALTER TABLE).
+    """
+    from sqlalchemy import text, inspect
+    from models.models import db, Paciente, Responsavel
+
+    insp = inspect(db.engine)
+    cols = {c['name'] for c in insp.get_columns('pacientes')}
+    if 'id_responsavel' not in cols:
+        with db.engine.begin() as conn:
+            conn.execute(text(
+                'ALTER TABLE pacientes ADD COLUMN id_responsavel INTEGER '
+                'REFERENCES responsaveis(id)'
+            ))
+            conn.execute(text(
+                'CREATE INDEX IF NOT EXISTS ix_pacientes_id_responsavel '
+                'ON pacientes (id_responsavel)'
+            ))
+
+    pendentes = (Paciente.query
+                 .filter(Paciente.id_responsavel.is_(None))
+                 .filter(Paciente.responsavel.isnot(None))
+                 .filter(Paciente.responsavel != '')
+                 .all())
+    if not pendentes:
+        return
+
+    # Cache por nome normalizado para deduplicar dentro do mesmo batch
+    cache = {}
+    for p in pendentes:
+        chave = (p.responsavel or '').strip().lower()
+        if not chave:
+            continue
+        resp = cache.get(chave)
+        if resp is None:
+            resp = Responsavel.query.filter(
+                db.func.lower(Responsavel.nome) == chave
+            ).first()
+        if resp is None:
+            resp = Responsavel(nome=p.responsavel.strip())
+            db.session.add(resp)
+            db.session.flush()
+        cache[chave] = resp
+        p.id_responsavel = resp.id
+    db.session.commit()

@@ -38,12 +38,71 @@
             <input type="date" class="form-control" id="data_nascimento" name="data_nascimento"
                    value="{{ fd.get('data_nascimento') or (paciente.data_nascimento.strftime('%Y-%m-%d') if paciente else '') }}" required>
           </div>
-          <div class="form-group">
-            <label for="responsavel">Responsável</label>
-            <input type="text" class="form-control" id="responsavel" name="responsavel"
-                   value="{{ fd.get('responsavel') or (paciente.responsavel if paciente and paciente.responsavel else '') }}"
-                   placeholder="Nome do responsável (opcional)">
-          </div>
+          {% set resp_atual = paciente.responsavel_obj if paciente else None %}
+          <fieldset class="form-group p-3" style="border:1px solid #e5e7eb; border-radius:6px;">
+            <legend class="w-auto px-2" style="font-size:0.95rem;">Responsável (opcional)</legend>
+
+            <div class="form-group mb-2">
+              <label for="resp-busca">Buscar responsável existente</label>
+              <input type="text" class="form-control" id="resp-busca"
+                     placeholder="Digite nome ou CPF para reutilizar..." autocomplete="off">
+              <div id="resp-resultados" class="list-group" style="position:absolute; z-index:10;"></div>
+            </div>
+
+            <input type="hidden" name="responsavel_id" id="responsavel_id"
+                   value="{{ fd.get('responsavel_id') or (resp_atual.id if resp_atual else '') }}">
+
+            <div id="resp-selecionado" class="alert alert-info py-2 px-3 mb-2"
+                 style="display:{{ 'block' if resp_atual else 'none' }};">
+              <strong id="resp-selecionado-nome">{{ resp_atual.nome if resp_atual else '' }}</strong>
+              <span id="resp-selecionado-cpf" class="text-muted">
+                {% if resp_atual and resp_atual.cpf %} — CPF {{ resp_atual.cpf }}{% endif %}
+              </span>
+              <button type="button" class="btn btn-sm btn-link float-right p-0"
+                      onclick="limparResponsavelSelecionado()">trocar</button>
+            </div>
+
+            <div id="resp-novo-bloco" style="display:{{ 'none' if resp_atual else 'block' }};">
+              <div class="row">
+                <div class="col-md-7 mb-2">
+                  <label for="resp_nome">Nome</label>
+                  <input type="text" class="form-control" id="resp_nome" name="resp_nome"
+                         value="{{ fd.get('resp_nome') or '' }}">
+                </div>
+                <div class="col-md-5 mb-2">
+                  <label for="resp_cpf">CPF</label>
+                  <input type="text" class="form-control" id="resp_cpf" name="resp_cpf"
+                         value="{{ fd.get('resp_cpf') or '' }}" maxlength="14"
+                         placeholder="000.000.000-00">
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-5 mb-2">
+                  <label for="resp_email">E-mail</label>
+                  <input type="email" class="form-control" id="resp_email" name="resp_email"
+                         value="{{ fd.get('resp_email') or '' }}">
+                </div>
+                <div class="col-md-4 mb-2">
+                  <label for="resp_telefone">Telefone</label>
+                  <input type="text" class="form-control" id="resp_telefone" name="resp_telefone"
+                         value="{{ fd.get('resp_telefone') or '' }}">
+                </div>
+                <div class="col-md-3 mb-2">
+                  <label for="resp_parentesco">Parentesco</label>
+                  <select class="form-control" id="resp_parentesco" name="resp_parentesco">
+                    {% set par = fd.get('resp_parentesco') or '' %}
+                    <option value=""></option>
+                    <option value="mae" {{ 'selected' if par == 'mae' }}>Mãe</option>
+                    <option value="pai" {{ 'selected' if par == 'pai' }}>Pai</option>
+                    <option value="tutor" {{ 'selected' if par == 'tutor' }}>Tutor(a)</option>
+                    <option value="irmao" {{ 'selected' if par == 'irmao' }}>Irmão(ã)</option>
+                    <option value="outro" {{ 'selected' if par == 'outro' }}>Outro</option>
+                  </select>
+                </div>
+              </div>
+              <small class="text-muted">Informe e-mail OU telefone para contato.</small>
+            </div>
+          </fieldset>
           {% if not paciente %}
           <div class="form-group">
             <div class="alert alert-warning" style="font-size:0.9rem;">
@@ -79,11 +138,64 @@
 {% block scripts %}
 <script>
   // Mascara simples para CPF: digita so digitos, formata na saída
-  document.getElementById('cpf').addEventListener('blur', function() {
-    var v = (this.value || '').replace(/\D/g, '');
-    if (v.length === 11) {
-      this.value = v.substr(0,3)+'.'+v.substr(3,3)+'.'+v.substr(6,3)+'-'+v.substr(9,2);
-    }
+  function maskCpf(input) {
+    input.addEventListener('blur', function() {
+      var v = (this.value || '').replace(/\D/g, '');
+      if (v.length === 11) {
+        this.value = v.substr(0,3)+'.'+v.substr(3,3)+'.'+v.substr(6,3)+'-'+v.substr(9,2);
+      }
+    });
+  }
+  maskCpf(document.getElementById('cpf'));
+  maskCpf(document.getElementById('resp_cpf'));
+
+  // ---- Autocomplete de responsavel ----
+  const inputBusca = document.getElementById('resp-busca');
+  const caixa = document.getElementById('resp-resultados');
+  const hidden = document.getElementById('responsavel_id');
+  const selecionado = document.getElementById('resp-selecionado');
+  const selNome = document.getElementById('resp-selecionado-nome');
+  const selCpf = document.getElementById('resp-selecionado-cpf');
+  const novoBloco = document.getElementById('resp-novo-bloco');
+  let debounce;
+
+  function limparResponsavelSelecionado() {
+    hidden.value = '';
+    selecionado.style.display = 'none';
+    novoBloco.style.display = 'block';
+  }
+  window.limparResponsavelSelecionado = limparResponsavelSelecionado;
+
+  function selecionar(r) {
+    hidden.value = r.id;
+    selNome.textContent = r.nome;
+    selCpf.textContent = r.cpf ? ' — CPF ' + r.cpf : '';
+    selecionado.style.display = 'block';
+    novoBloco.style.display = 'none';
+    caixa.innerHTML = '';
+    inputBusca.value = '';
+  }
+
+  inputBusca && inputBusca.addEventListener('input', function() {
+    clearTimeout(debounce);
+    const q = this.value.trim();
+    if (q.length < 2) { caixa.innerHTML = ''; return; }
+    debounce = setTimeout(function() {
+      fetch("{{ url_for('paciente.buscar_responsaveis') }}?q=" + encodeURIComponent(q))
+        .then(function(r){ return r.json(); })
+        .then(function(lista){
+          caixa.innerHTML = '';
+          lista.forEach(function(r){
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'list-group-item list-group-item-action';
+            item.textContent = r.nome + (r.cpf ? ' — ' + r.cpf : '') +
+              (r.parentesco ? ' (' + r.parentesco + ')' : '');
+            item.onclick = function(){ selecionar(r); };
+            caixa.appendChild(item);
+          });
+        });
+    }, 200);
   });
 </script>
 {% endblock %}

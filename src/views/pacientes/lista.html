@@ -39,7 +39,14 @@
           <td class="d-none d-lg-table-cell">{{ p.cpf }}</td>
           <td class="d-none d-md-table-cell">{{ 'M' if p.sexo == 'M' else 'F' }}</td>
           <td class="d-none d-sm-table-cell">{{ p.data_nascimento.strftime('%d/%m/%Y') }}</td>
-          <td class="d-none d-xl-table-cell">{{ p.responsavel or '—' }}</td>
+          <td class="d-none d-xl-table-cell">
+            {% if p.responsavel_obj %}
+              {{ p.responsavel_obj.nome }}
+              {% if p.responsavel_obj.parentesco %}
+                <small class="text-muted">({{ p.responsavel_obj.parentesco }})</small>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
           <td class="text-center" style="white-space:nowrap;">
             <a href="{{ url_for('paciente.detalhe', id=p.id) }}" class="btn btn-sm btn-info" title="Detalhes">
               <i class="fa fa-eye"></i>

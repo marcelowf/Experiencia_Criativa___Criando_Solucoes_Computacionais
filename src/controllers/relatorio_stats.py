@@ -94,6 +94,15 @@ def montar_query(args, current_user):
         except ValueError:
             pass
 
+    versoes_ids = args.getlist('id_versao_pesos') if hasattr(args, 'getlist') else []
+    if versoes_ids:
+        try:
+            ids = [int(x) for x in versoes_ids if x]
+            if ids:
+                query = query.filter(Avaliacao.id_versao_pesos.in_(ids))
+        except ValueError:
+            pass
+
     return query
 
 

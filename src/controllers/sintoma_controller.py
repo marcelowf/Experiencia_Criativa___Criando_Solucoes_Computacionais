@@ -102,7 +102,7 @@ def editar(id):
                 return render_template('sintomas/form.html', sintoma=s, acao='Editar Sintoma',
                                        exigir_notas=True)
             db.session.commit()  # aplica mudancas em Sintoma.peso_*
-            nova = criar_nova_versao(criada_por_id=current_user.id, notas=notas)
+            nova = criar_nova_versao(criado_por_id=current_user.id, notas=notas)
             log_audit('UPDATE', entidade='sintoma', id_entidade=s.id, detalhes={
                 'antes': antes, 'depois': depois,
                 'nova_versao': nova.nome, 'notas': notas,
@@ -136,7 +136,7 @@ def toggle(id):
 def versoes():
     """Historico de versoes de pesos."""
     versoes = (VersaoPesos.query
-               .order_by(VersaoPesos.criada_em.desc())
+               .order_by(VersaoPesos.criado_em.desc())
                .all())
     return render_template('sintomas/versoes.html', versoes=versoes)
 
