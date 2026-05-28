@@ -40,7 +40,8 @@ def novo():
         chave = request.form['chave'].strip()
         if Sintoma.query.filter_by(chave=chave).first():
             flash('Já existe um sintoma com essa chave.', 'danger')
-            return redirect(url_for('sintoma.novo'))
+            return render_template('sintomas/form.html', sintoma=None,
+                                   acao='Novo Sintoma', form_data=request.form)
         s = Sintoma(
             chave=chave,
             label=request.form['label'].strip(),
@@ -51,20 +52,18 @@ def novo():
         )
         db.session.add(s)
         db.session.commit()
-        # Novo sintoma adiciona-se na versao ativa atual com seu peso
-        atual = versao_ativa()
-        if atual:
-            db.session.add(SintomaPesoVersao(
-                id_versao=atual.id, id_sintoma=s.id,
-                peso_masculino=s.peso_masculino, peso_feminino=s.peso_feminino,
-            ))
-            db.session.commit()
+        # Adicionar um sintoma muda o modelo de escore -> congela uma nova versao
+        # (snapshot de todos os sintomas, incluindo o novo). Nao mutar versoes antigas.
+        nova = criar_nova_versao(
+            criado_por_id=current_user.id,
+            notas=f'Novo sintoma adicionado: {s.label}',
+        )
         log_audit('CREATE', entidade='sintoma', id_entidade=s.id, detalhes={
             'chave': s.chave, 'label': s.label,
             'peso_masculino': s.peso_masculino, 'peso_feminino': s.peso_feminino,
-            'ativo': s.ativo
+            'ativo': s.ativo, 'nova_versao': nova.nome,
         })
-        flash(f'Sintoma "{s.label}" cadastrado.', 'success')
+        flash(f'Sintoma "{s.label}" cadastrado. Pesos congelados como {nova.nome}.', 'success')
         return redirect(url_for('sintoma.lista'))
     return render_template('sintomas/form.html', sintoma=None, acao='Novo Sintoma')
 

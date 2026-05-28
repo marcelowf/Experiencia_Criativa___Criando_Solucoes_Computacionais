@@ -79,6 +79,31 @@ def test_alteracao_sem_notas_eh_rejeitada(auth_client, app, db):
         assert VersaoPesos.query.count() == 1
 
 
+def test_novo_sintoma_cria_v2(auth_client, app, db):
+    """Adicionar um sintoma deve criar nova versão (V2) e snapshotar o novo sintoma."""
+    auth_client.post('/sintomas/novo', data={
+        'chave': 'sintoma_teste',
+        'label': 'Sintoma Teste',
+        'peso_masculino': '0.10',
+        'peso_feminino': '0.20',
+        'ativo': 'on',
+    }, follow_redirects=True)
+    with app.app_context():
+        ativa = versao_ativa()
+        assert ativa.nome == 'V2'
+        # V1 continua existindo, inativa
+        v1 = VersaoPesos.query.filter_by(nome='V1').first()
+        assert v1.ativa is False
+        # V2 inclui o novo sintoma (13 = 12 seed + 1 novo)
+        assert SintomaPesoVersao.query.filter_by(id_versao=ativa.id).count() == 13
+        # V1 NAO foi corrompida: continua com 12 sintomas
+        assert SintomaPesoVersao.query.filter_by(id_versao=v1.id).count() == 12
+        s = Sintoma.query.filter_by(chave='sintoma_teste').first()
+        snap = (SintomaPesoVersao.query
+                .filter_by(id_versao=ativa.id, id_sintoma=s.id).first())
+        assert snap.peso_masculino == 0.10
+
+
 def test_toggle_ativo_nao_cria_versao(auth_client, app, db):
     with app.app_context():
         s = Sintoma.query.filter_by(chave='agressividade').first()

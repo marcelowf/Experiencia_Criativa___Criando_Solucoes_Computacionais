@@ -223,6 +223,83 @@ def test_revogar_invalida_link(auth_client, client, app):
     assert r.status_code == 410
 
 
+def test_prorrogar_determinado(auth_client, app):
+    auth_client.post('/pacientes/qr/gerar')
+    with app.app_context():
+        qr = QrCadastroToken.query.first()
+        expira_antes = qr.expira_em
+        qr_id = qr.id
+
+    auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
+                     data={'quantidade': '7', 'unidade': 'dia'}, follow_redirects=False)
+
+    with app.app_context():
+        qr = QrCadastroToken.query.get(qr_id)
+        assert qr.expira_em > expira_antes
+        assert qr.sem_expiracao is False
+        assert qr.valido is True
+
+
+def test_prorrogar_unidades_variadas(auth_client, app):
+    """Garante que minuto, hora, mes e ano também funcionam."""
+    for unidade, qtd in [('minuto', '30'), ('hora', '2'), ('mes', '1'), ('ano', '1')]:
+        auth_client.post('/pacientes/qr/gerar')
+        with app.app_context():
+            qr = QrCadastroToken.query.order_by(QrCadastroToken.id.desc()).first()
+            qr_id = qr.id
+        r = auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
+                             data={'quantidade': qtd, 'unidade': unidade},
+                             follow_redirects=False)
+        assert r.status_code in (302, 303)
+        with app.app_context():
+            qr = QrCadastroToken.query.get(qr_id)
+            assert qr.valido is True
+
+
+def test_prorrogar_indeterminado(auth_client, app):
+    auth_client.post('/pacientes/qr/gerar')
+    with app.app_context():
+        qr_id = QrCadastroToken.query.first().id
+
+    auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
+                     data={'quantidade': '1', 'unidade': 'sem_prazo'}, follow_redirects=False)
+
+    with app.app_context():
+        qr = QrCadastroToken.query.get(qr_id)
+        assert qr.sem_expiracao is True
+        assert qr.valido is True
+
+
+def test_prorrogar_qr_expirado_ainda_fica_valido(auth_client, app):
+    auth_client.post('/pacientes/qr/gerar')
+    with app.app_context():
+        qr = QrCadastroToken.query.first()
+        qr.expira_em = datetime.utcnow() - timedelta(hours=1)
+        db.session.commit()
+        qr_id = qr.id
+
+    auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
+                     data={'quantidade': '1', 'unidade': 'dia'}, follow_redirects=False)
+
+    with app.app_context():
+        qr = QrCadastroToken.query.get(qr_id)
+        assert qr.valido is True
+
+
+def test_prorrogar_proibe_padrao(app, admin, usuario_padrao):
+    c_admin = app.test_client()
+    c_admin.post('/login', data={'email': 'admin@admin.com', 'senha': 'admin123'})
+    c_admin.post('/pacientes/qr/gerar')
+    with app.app_context():
+        qr_id = QrCadastroToken.query.first().id
+
+    c_padrao = app.test_client()
+    c_padrao.post('/login', data={'email': 'teste@teste.com', 'senha': 'senha123'})
+    r = c_padrao.post(f'/pacientes/qr/{qr_id}/prorrogar',
+                      data={'quantidade': '7', 'unidade': 'dia'})
+    assert r.status_code == 403
+
+
 def test_padrao_nao_pode_revogar_qr_de_outro(app, admin, usuario_padrao):
     c_admin = app.test_client()
     c_admin.post('/login', data={'email': 'admin@admin.com', 'senha': 'admin123'})

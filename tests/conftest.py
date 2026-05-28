@@ -43,12 +43,13 @@ def db(app, _db_session):
         # Apagar tudo respeitando FKs (em ordem reversa)
         from models.models import (LogAuditoria, SintomaAvaliacao, Avaliacao,
                                    SintomaPesoVersao, VersaoPesos,
-                                   UserPreference, Paciente, Responsavel,
-                                   QrCadastroToken, Usuario, Sintoma)
+                                   UserPreference, Paciente, DadosSocioeconomicos,
+                                   Anamnese, Responsavel, QrCadastroToken,
+                                   EmailConfig, Usuario, Sintoma)
         for model in [LogAuditoria, SintomaAvaliacao, Avaliacao,
                       SintomaPesoVersao, VersaoPesos,
-                      UserPreference, Paciente, Responsavel,
-                      QrCadastroToken, Usuario, Sintoma]:
+                      UserPreference, DadosSocioeconomicos, Anamnese, Paciente,
+                      Responsavel, QrCadastroToken, EmailConfig, Usuario, Sintoma]:
             _db.session.query(model).delete()
         _db.session.commit()
 

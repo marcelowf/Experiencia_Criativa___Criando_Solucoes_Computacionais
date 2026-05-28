@@ -48,10 +48,11 @@ def create_app(config_overrides=None):
     from controllers.logs_controller import logs_bp
     from controllers.reset_senha_controller import reset_bp
     from controllers.qr_cadastro_controller import qr_bp, publico_bp
+    from controllers.email_config_controller import email_config_bp
 
     for bp in [auth_bp, paciente_bp, avaliacao_bp, relatorio_bp,
                usuario_bp, sintoma_bp, logs_bp, reset_bp,
-               qr_bp, publico_bp]:
+               qr_bp, publico_bp, email_config_bp]:
         app.register_blueprint(bp)
 
     @app.route('/health')

@@ -28,6 +28,7 @@
         <li class="list-group-item"><strong>CPF:</strong> {{ paciente.cpf }}</li>
         <li class="list-group-item"><strong>Sexo:</strong> {{ 'Masculino' if paciente.sexo == 'M' else 'Feminino' }}</li>
         <li class="list-group-item"><strong>Nascimento:</strong> {{ paciente.data_nascimento.strftime('%d/%m/%Y') }}</li>
+        <li class="list-group-item"><strong>E-mail:</strong> {{ paciente.email or '—' }}</li>
         {% set resp = paciente.responsavel_obj %}
         {% if resp %}
         <li class="list-group-item">
@@ -43,6 +44,21 @@
         <li class="list-group-item"><strong>Responsável:</strong> —</li>
         {% endif %}
         <li class="list-group-item"><strong>Profissional:</strong> {{ paciente.usuario.nome }}</li>
+        {% set se = paciente.dados_socioeconomicos %}
+        {% if se %}
+        <li class="list-group-item">
+          <strong>Dados socioeconômicos:</strong>
+          <div class="small mt-1">
+            {% if se.renda_faixa %}Renda: {{ se.renda_faixa | replace('_', ' ') | title }}<br>{% endif %}
+            {% if se.escolaridade %}Escolaridade: {{ se.escolaridade | replace('_', ' ') | title }}<br>{% endif %}
+            {% if se.profissao %}Profissão: {{ se.profissao }}<br>{% endif %}
+            {% if se.num_dependentes is not none %}Dependentes: {{ se.num_dependentes }}{% endif %}
+          </div>
+          {% if se.baixa_renda %}
+          <span class="badge badge-warning mt-1"><i class="fa fa-info-circle"></i> Perfil baixa renda</span>
+          {% endif %}
+        </li>
+        {% endif %}
         {% if paciente.consentimento_dado_em %}
         <li class="list-group-item">
           <strong><i class="fa fa-shield text-success"></i> Consentimento (LGPD):</strong>
@@ -52,6 +68,40 @@
       </ul>
     </div>
   </div>
+
+  {% set an = paciente.anamnese %}
+  {% if an %}
+  <div class="col-sm-6 col-lg-5">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-clipboard"></i> Anamnese — história clínica e familiar</div>
+      {% if an.sugestivo_pre_mutacao %}
+      <div class="alert alert-warning mb-0" style="border-radius:0;">
+        <i class="fa fa-exclamation-triangle"></i>
+        <strong>Histórico familiar sugestivo de portador de pré-mutação</strong>
+        (menopausa precoce / FXPOI ou ataxia e tremores / FXTAS). Considere investigar.
+      </div>
+      {% endif %}
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><strong>Já fez exame de DNA (SXF):</strong> {{ an.ja_fez_exame_dna_label or '—' }}</li>
+        {% if an.resultado_exame %}
+        <li class="list-group-item"><strong>Resultado do exame:</strong> {{ an.resultado_exame_label }}</li>
+        {% endif %}
+        <li class="list-group-item"><strong>Interesse no exame (PCR):</strong> {{ an.interesse_exame_pcr_label or '—' }}</li>
+        <li class="list-group-item"><strong>Diagnóstico de autismo:</strong> {{ an.diagnostico_autismo_label or '—' }}</li>
+        <li class="list-group-item"><strong>Tem irmãos:</strong> {{ an.tem_irmaos_label or '—' }}</li>
+        <li class="list-group-item"><strong>Família — déf. intelectual/atraso/autismo:</strong> {{ an.familia_neurodesenvolvimento_label or '—' }}</li>
+        <li class="list-group-item">
+          <strong>Família — menopausa precoce:</strong> {{ an.familia_menopausa_precoce_label or '—' }}
+          {% if an.familia_menopausa_precoce == 'sim' %}<span class="badge badge-warning ml-1">FXPOI</span>{% endif %}
+        </li>
+        <li class="list-group-item">
+          <strong>Família — ataxia e tremores:</strong> {{ an.familia_ataxia_tremores_label or '—' }}
+          {% if an.familia_ataxia_tremores == 'sim' %}<span class="badge badge-warning ml-1">FXTAS</span>{% endif %}
+        </li>
+      </ul>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <div class="page-header" style="margin-bottom:16px;">

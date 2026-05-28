@@ -149,8 +149,9 @@ a:hover { text-decoration: none; }
   width: 34px; height: 34px;
   border-radius: var(--radius-pill);
   background: var(--primary);
-  color: white; font-weight: 700; font-size: 13px;
+  color: white; font-weight: 700; font-size: 13px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
+  text-align: center;
   flex-shrink: 0;
 }
 
@@ -879,6 +880,102 @@ select.form-control {
 .sidebar-theme-btn.active {
   color: var(--primary);
   background: var(--primary-muted);
+}
+
+/* ============================================================
+   MODAL DE CONFIRMAÇÃO (substitui window.confirm)
+   ============================================================ */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1080;
+}
+.confirm-overlay.open { display: flex; }
+
+.confirm-card {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  transform: translateY(10px) scale(0.97);
+  opacity: 0;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.confirm-overlay.open .confirm-card { transform: none; opacity: 1; }
+
+.confirm-body { padding: 28px 26px 18px; text-align: center; }
+.confirm-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+  background: var(--danger-light);
+  color: var(--danger);
+}
+.confirm-icon.warning { background: var(--warning-light); color: var(--warning); }
+.confirm-icon.primary { background: var(--primary-light);  color: var(--primary); }
+
+.confirm-title { font-size: 1.15rem; font-weight: 700; margin: 0 0 8px; }
+.confirm-message {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  padding: 8px 26px 24px;
+}
+.confirm-actions .btn { flex: 1; }
+
+/* ============================================================
+   ANAMNESE (questionário de história clínica/familiar)
+   ============================================================ */
+.anamnese-q { margin-bottom: 16px; }
+.anamnese-pergunta {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.anamnese-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.anamnese-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 7px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface);
+  transition: border-color .15s, background .15s, color .15s;
+}
+.anamnese-opt:hover { border-color: var(--primary); }
+.anamnese-opt input { margin: 0; cursor: pointer; }
+/* destaca a opção marcada */
+.anamnese-opt:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-muted);
+  color: var(--primary);
 }
 
 /* ============================================================

@@ -1,4 +1,5 @@
 {% extends "publico/base.html" %}
+{% from 'partials/anamnese.html' import anamnese_fields %}
 {% block content %}
 {% set fd = form_data or {} %}
 <div class="card card-publico">
@@ -7,7 +8,7 @@
       Preencha seus dados abaixo. Estes dados serão enviados ao profissional que gerou este link.
     </p>
 
-    <form method="POST" action="{{ url_for('publico.cadastro_paciente', token=token) }}">
+    <form method="POST" action="{{ url_for('publico.cadastro_paciente', token=token) }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <div class="form-group">
@@ -37,6 +38,16 @@
         <label for="data_nascimento">Data de nascimento <span class="text-danger">*</span></label>
         <input type="date" class="form-control" id="data_nascimento" name="data_nascimento"
                value="{{ fd.get('data_nascimento', '') }}" required>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Seu e-mail (opcional)</label>
+        <input type="email" class="form-control" id="email" name="email"
+               value="{{ fd.get('email', '') }}" autocomplete="email"
+               placeholder="seu@email.com">
+        <small class="text-muted">
+          Se você é menor de idade ou prefere usar o e-mail do responsável, deixe em branco.
+        </small>
       </div>
 
       <fieldset class="form-group p-3" style="border:1px solid #e5e7eb; border-radius:6px;">
@@ -80,6 +91,16 @@
         </div>
       </fieldset>
 
+      <fieldset class="form-group p-3" style="border:1px solid #e5e7eb; border-radius:6px;">
+        <legend class="w-auto px-2" style="font-size:0.9rem;">
+          <i class="fa fa-clipboard"></i> Histórico clínico e familiar
+        </legend>
+        <small class="text-muted d-block mb-3">
+          As perguntas abaixo ajudam o profissional na triagem. Se não souber alguma, pode pular.
+        </small>
+        {{ anamnese_fields(fd, None) }}
+      </fieldset>
+
       <div class="alert alert-warning" style="font-size:0.9rem;">
         <strong><i class="fa fa-shield"></i> Consentimento (LGPD)</strong>
         <div class="custom-control custom-checkbox mt-2">
@@ -99,17 +120,4 @@
   </div>
 </div>
 
-<script>
-  function maskCpf(input) {
-    if (!input) return;
-    input.addEventListener('blur', function() {
-      var v = (this.value || '').replace(/\D/g, '');
-      if (v.length === 11) {
-        this.value = v.substr(0,3)+'.'+v.substr(3,3)+'.'+v.substr(6,3)+'-'+v.substr(9,2);
-      }
-    });
-  }
-  maskCpf(document.getElementById('cpf'));
-  maskCpf(document.getElementById('resp_cpf'));
-</script>
 {% endblock %}

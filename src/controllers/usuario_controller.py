@@ -32,7 +32,8 @@ def novo():
         email = request.form['email'].strip().lower()
         if Usuario.query.filter_by(email=email).first():
             flash('Este e-mail já está cadastrado.', 'danger')
-            return redirect(url_for('usuario.novo'))
+            return render_template('usuarios/form.html', usuario=None,
+                                   acao='Cadastrar Usuário', form_data=request.form)
         u = Usuario(
             nome=request.form['nome'].strip(),
             email=email,
@@ -42,7 +43,8 @@ def novo():
             u.set_senha(request.form['senha'])
         except SenhaFracaError as e:
             flash(str(e), 'danger')
-            return redirect(url_for('usuario.novo'))
+            return render_template('usuarios/form.html', usuario=None,
+                                   acao='Cadastrar Usuário', form_data=request.form)
         db.session.add(u)
         db.session.flush()
         db.session.add(UserPreference(id_usuario=u.id))
@@ -52,7 +54,8 @@ def novo():
         })
         flash('Usuário cadastrado com sucesso.', 'success')
         return redirect(url_for('usuario.lista'))
-    return render_template('usuarios/form.html', usuario=None, acao='Cadastrar Usuário')
+    return render_template('usuarios/form.html', usuario=None, acao='Cadastrar Usuário',
+                           form_data=None)
 
 
 @usuario_bp.route('/<int:id>/editar', methods=['GET', 'POST'])
@@ -66,7 +69,9 @@ def editar(id):
         if (usuario.perfil == 'admin' and novo_perfil != 'admin'
                 and _eh_ultimo_admin(usuario)):
             flash('Não é possível remover o perfil admin do último administrador.', 'danger')
-            return redirect(url_for('usuario.editar', id=usuario.id))
+            return render_template('usuarios/form.html', usuario=usuario,
+                                   acao='Salvar Alterações', form_data=request.form,
+                                   eh_ultimo_admin=_eh_ultimo_admin(usuario))
         usuario.nome = request.form['nome'].strip()
         usuario.perfil = novo_perfil
         nova_senha = request.form.get('senha', '').strip()
@@ -76,7 +81,9 @@ def editar(id):
                 usuario.set_senha(nova_senha)
             except SenhaFracaError as e:
                 flash(str(e), 'danger')
-                return redirect(url_for('usuario.editar', id=usuario.id))
+                return render_template('usuarios/form.html', usuario=usuario,
+                                       acao='Salvar Alterações', form_data=request.form,
+                                       eh_ultimo_admin=_eh_ultimo_admin(usuario))
         db.session.commit()
         log_audit('UPDATE', entidade='usuario', id_entidade=usuario.id, detalhes={
             'antes': antes,

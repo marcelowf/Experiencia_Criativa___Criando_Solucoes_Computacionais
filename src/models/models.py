@@ -113,6 +113,7 @@ class Paciente(Auditable, SoftDeletable, db.Model):
     cpf = db.Column(db.String(14), unique=True, nullable=False)
     sexo = db.Column(db.String(1), nullable=False)  # 'M' | 'F'
     data_nascimento = db.Column(db.Date, nullable=False)
+    email = db.Column(db.String(120), nullable=True)
     responsavel = db.Column(db.String(120))  # legado: nome livre antes de Responsavel
     id_responsavel = db.Column(db.Integer, db.ForeignKey('responsaveis.id'),
                                nullable=True, index=True)
@@ -120,6 +121,116 @@ class Paciente(Auditable, SoftDeletable, db.Model):
     consentimento_dado_em = db.Column(db.DateTime, nullable=True)
 
     avaliacoes = db.relationship('Avaliacao', backref='paciente', lazy=True)
+
+
+FAIXAS_RENDA = [
+    ('sem_renda', 'Sem renda'),
+    ('ate_1sm',   'Até 1 salário mínimo'),
+    ('1_3sm',     '1 a 3 salários mínimos'),
+    ('3_5sm',     '3 a 5 salários mínimos'),
+    ('acima_5sm', 'Acima de 5 salários mínimos'),
+]
+
+ESCOLARIDADES = [
+    ('sem_instrucao', 'Sem instrução'),
+    ('fundamental',   'Ensino Fundamental'),
+    ('medio',         'Ensino Médio'),
+    ('superior',      'Ensino Superior ou mais'),
+]
+
+BAIXA_RENDA_FAIXAS = {'sem_renda', 'ate_1sm'}
+
+
+class DadosSocioeconomicos(Auditable, db.Model):
+    """Informacoes socioeconomicas opcionais do paciente (1:1)."""
+    __tablename__ = 'dados_socioeconomicos'
+    id = db.Column(db.Integer, primary_key=True)
+    id_paciente = db.Column(db.Integer, db.ForeignKey('pacientes.id'),
+                            unique=True, nullable=False, index=True)
+    renda_faixa = db.Column(db.String(20), nullable=True)
+    profissao = db.Column(db.String(120), nullable=True)
+    escolaridade = db.Column(db.String(20), nullable=True)
+    num_dependentes = db.Column(db.Integer, nullable=True)
+
+    paciente = db.relationship('Paciente',
+                               backref=db.backref('dados_socioeconomicos', uselist=False))
+
+    @property
+    def baixa_renda(self):
+        return self.renda_faixa in BAIXA_RENDA_FAIXAS
+
+
+# Opcoes da anamnese (historia clinica/familiar). Sao CONTEXTO: nao entram no score.
+RESULTADO_EXAME_OPCOES = [
+    ('mutacao_completa', 'Mutação Completa (+200 repetições CGG)'),
+    ('pre_mutacao',      'Pré-mutação (55 a 199 repetições)'),
+    ('zona_gray',        'Zona Gray / Intermediária (45 a 54 repetições)'),
+    ('mosaicismo',       'Mosaicismo'),
+    ('negativo',         'Negativo para X Frágil (até 39 repetições)'),
+    ('nao_sei',          'Não sei'),
+]
+_RESULTADO_EXAME_MAP = dict(RESULTADO_EXAME_OPCOES)
+_TRI_MAP = {'sim': 'Sim', 'nao': 'Não', 'nao_sei': 'Não sei'}
+
+
+class Anamnese(Auditable, db.Model):
+    """História clínica/familiar do paciente (1:1). Contexto de triagem — NÃO afeta o score.
+
+    Espelha o questionário de intake do cliente (Q1–Q8). Campos booleanos usam
+    None = não respondido; campos ternários guardam 'sim'/'nao'/'nao_sei'.
+    """
+    __tablename__ = 'anamnese'
+    id = db.Column(db.Integer, primary_key=True)
+    id_paciente = db.Column(db.Integer, db.ForeignKey('pacientes.id'),
+                            unique=True, nullable=False, index=True)
+
+    # Q1 — já fez exame de DNA (sangue/saliva) para SXF
+    ja_fez_exame_dna = db.Column(db.Boolean, nullable=True)
+    # Q2 — interesse em fazer o exame de DNA (PCR)
+    interesse_exame_pcr = db.Column(db.Boolean, nullable=True)
+    # Q3 — resultado confirmado por laboratório (se já tem), por nº de repetições CGG
+    resultado_exame = db.Column(db.String(20), nullable=True)
+    # Q4 — diagnóstico de autismo
+    diagnostico_autismo = db.Column(db.Boolean, nullable=True)
+    # Q5 — tem irmãos
+    tem_irmaos = db.Column(db.Boolean, nullable=True)
+    # Q6 — família com def. intelectual / atraso / dificuldades de aprendizagem / autismo
+    familia_neurodesenvolvimento = db.Column(db.String(10), nullable=True)
+    # Q7 — antecedentes de menopausa precoce na família (sugestivo de FXPOI / pré-mutação)
+    familia_menopausa_precoce = db.Column(db.String(10), nullable=True)
+    # Q8 — antecedentes de ataxia (descoordenação) e tremores (sugestivo de FXTAS / pré-mutação)
+    familia_ataxia_tremores = db.Column(db.String(10), nullable=True)
+
+    paciente = db.relationship('Paciente',
+                               backref=db.backref('anamnese', uselist=False))
+
+    @property
+    def resultado_exame_label(self):
+        return _RESULTADO_EXAME_MAP.get(self.resultado_exame)
+
+    @staticmethod
+    def _bool_label(v):
+        return None if v is None else ('Sim' if v else 'Não')
+
+    @property
+    def ja_fez_exame_dna_label(self):   return self._bool_label(self.ja_fez_exame_dna)
+    @property
+    def interesse_exame_pcr_label(self): return self._bool_label(self.interesse_exame_pcr)
+    @property
+    def diagnostico_autismo_label(self): return self._bool_label(self.diagnostico_autismo)
+    @property
+    def tem_irmaos_label(self):          return self._bool_label(self.tem_irmaos)
+    @property
+    def familia_neurodesenvolvimento_label(self): return _TRI_MAP.get(self.familia_neurodesenvolvimento)
+    @property
+    def familia_menopausa_precoce_label(self):    return _TRI_MAP.get(self.familia_menopausa_precoce)
+    @property
+    def familia_ataxia_tremores_label(self):      return _TRI_MAP.get(self.familia_ataxia_tremores)
+
+    @property
+    def sugestivo_pre_mutacao(self):
+        """True se há sinais familiares de portador de pré-mutação (FXPOI ou FXTAS)."""
+        return 'sim' in (self.familia_menopausa_precoce, self.familia_ataxia_tremores)
 
 
 class Avaliacao(Auditable, SoftDeletable, db.Model):
@@ -213,6 +324,7 @@ class QrCadastroToken(Auditable, SoftDeletable, db.Model):
                                    nullable=False, index=True)
     tipo = db.Column(db.String(20), nullable=False, default='basico')
     expira_em = db.Column(db.DateTime, nullable=False, index=True)
+    sem_expiracao = db.Column(db.Boolean, nullable=False, default=False)
     revogado_em = db.Column(db.DateTime, nullable=True)
 
     emissor = db.relationship('Usuario', foreign_keys=[id_usuario_emissor])
@@ -221,7 +333,17 @@ class QrCadastroToken(Auditable, SoftDeletable, db.Model):
     def valido(self):
         return (self.revogado_em is None
                 and self.removido_em is None
-                and self.expira_em > datetime.utcnow())
+                and (self.sem_expiracao or self.expira_em > datetime.utcnow()))
+
+
+class EmailConfig(Auditable, db.Model):
+    """Configuracao singleton de envio de e-mail (Gmail via senha de app)."""
+    __tablename__ = 'email_configs'
+    id = db.Column(db.Integer, primary_key=True)
+    remetente_email = db.Column(db.String(120), nullable=False)
+    remetente_nome = db.Column(db.String(120), nullable=True, default='Triagem SXF')
+    senha_app_cifrada = db.Column(db.Text, nullable=False)  # token Fernet
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
 
 
 class LogAuditoria(db.Model):
@@ -240,8 +362,9 @@ class LogAuditoria(db.Model):
 
 # ---------- Event listeners para auto-popular criado_por/atualizado_por ----------
 
-AUDITABLE_CLASSES = [Usuario, Responsavel, Paciente, Avaliacao, Sintoma, VersaoPesos,
-                     QrCadastroToken]
+AUDITABLE_CLASSES = [Usuario, Responsavel, Paciente, DadosSocioeconomicos,
+                     Avaliacao, Sintoma, VersaoPesos,
+                     QrCadastroToken, EmailConfig]
 
 
 def _current_user_id_ou_none():

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/anamnese.html' import anamnese_fields %}
 {% block title %}<title>{{ acao }} — Triagem SXF</title>{% endblock %}
 {% block content %}
 {% set fd = form_data or {} %}
@@ -10,7 +11,8 @@
       </div>
       <div class="card-body">
         <form method="POST"
-              action="{{ url_for('paciente.editar', id=paciente.id) if paciente else url_for('paciente.novo') }}">
+              action="{{ url_for('paciente.editar', id=paciente.id) if paciente else url_for('paciente.novo') }}"
+              novalidate>
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-group">
             <label for="nome">Nome completo <span class="text-danger">*</span></label>
@@ -37,6 +39,15 @@
             <label for="data_nascimento">Data de Nascimento <span class="text-danger">*</span></label>
             <input type="date" class="form-control" id="data_nascimento" name="data_nascimento"
                    value="{{ fd.get('data_nascimento') or (paciente.data_nascimento.strftime('%Y-%m-%d') if paciente else '') }}" required>
+          </div>
+          <div class="form-group">
+            <label for="email">E-mail do paciente</label>
+            <input type="email" class="form-control" id="email" name="email"
+                   value="{{ fd.get('email') or (paciente.email if paciente and paciente.email else '') }}"
+                   placeholder="paciente@exemplo.com (opcional)">
+            <small class="text-muted">
+              Se o paciente não tiver e-mail próprio (ex.: criança), preencha o do responsável abaixo.
+            </small>
           </div>
           {% set resp_atual = paciente.responsavel_obj if paciente else None %}
           <fieldset class="form-group p-3" style="border:1px solid #e5e7eb; border-radius:6px;">
@@ -103,8 +114,63 @@
               <small class="text-muted">Informe e-mail OU telefone para contato.</small>
             </div>
           </fieldset>
+          {% set se = paciente.dados_socioeconomicos if paciente else None %}
+          <fieldset class="form-group p-3 mt-3" style="border:1px solid #e5e7eb; border-radius:6px;">
+            <legend class="w-auto px-2" style="font-size:0.95rem;">
+              <i class="fa fa-bar-chart"></i> Dados socioeconômicos
+              <small class="text-muted font-weight-normal">(opcional — usados para análise de acesso ao exame)</small>
+            </legend>
+            <div class="row">
+              <div class="col-md-6 mb-2">
+                <label for="se_renda_faixa">Renda familiar mensal</label>
+                <select class="form-control form-control-sm" id="se_renda_faixa" name="se_renda_faixa">
+                  {% set r = fd.get('se_renda_faixa') or (se.renda_faixa if se else '') %}
+                  <option value="">Prefiro não informar</option>
+                  <option value="sem_renda"  {{ 'selected' if r == 'sem_renda'  }}>Sem renda</option>
+                  <option value="ate_1sm"    {{ 'selected' if r == 'ate_1sm'    }}>Até 1 salário mínimo</option>
+                  <option value="1_3sm"      {{ 'selected' if r == '1_3sm'      }}>1 a 3 salários mínimos</option>
+                  <option value="3_5sm"      {{ 'selected' if r == '3_5sm'      }}>3 a 5 salários mínimos</option>
+                  <option value="acima_5sm"  {{ 'selected' if r == 'acima_5sm'  }}>Acima de 5 salários mínimos</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-2">
+                <label for="se_escolaridade">Escolaridade</label>
+                <select class="form-control form-control-sm" id="se_escolaridade" name="se_escolaridade">
+                  {% set e = fd.get('se_escolaridade') or (se.escolaridade if se else '') %}
+                  <option value="">Prefiro não informar</option>
+                  <option value="sem_instrucao" {{ 'selected' if e == 'sem_instrucao' }}>Sem instrução</option>
+                  <option value="fundamental"   {{ 'selected' if e == 'fundamental'   }}>Ensino Fundamental</option>
+                  <option value="medio"         {{ 'selected' if e == 'medio'         }}>Ensino Médio</option>
+                  <option value="superior"      {{ 'selected' if e == 'superior'      }}>Ensino Superior ou mais</option>
+                </select>
+              </div>
+              <div class="col-md-8 mb-2">
+                <label for="se_profissao">Profissão / ocupação</label>
+                <input type="text" class="form-control form-control-sm" id="se_profissao" name="se_profissao"
+                       value="{{ fd.get('se_profissao') or (se.profissao if se else '') }}"
+                       placeholder="Ex.: agricultor, doméstica, aposentado…">
+              </div>
+              <div class="col-md-4 mb-2">
+                <label for="se_num_dependentes">Nº de dependentes</label>
+                <input type="number" min="0" max="20" class="form-control form-control-sm"
+                       id="se_num_dependentes" name="se_num_dependentes"
+                       value="{{ fd.get('se_num_dependentes') or (se.num_dependentes if se and se.num_dependentes is not none else '') }}"
+                       placeholder="0">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-group p-3 mt-3" style="border:1px solid #e5e7eb; border-radius:6px;">
+            <legend class="w-auto px-2" style="font-size:0.95rem;">
+              <i class="fa fa-clipboard"></i> Anamnese — história clínica e familiar
+              <small class="text-muted font-weight-normal">(opcional — contexto de triagem, não altera o score)</small>
+            </legend>
+            {% set an = paciente.anamnese if paciente else None %}
+            {{ anamnese_fields(fd, an) }}
+          </fieldset>
+
           {% if not paciente %}
-          <div class="form-group">
+          <div class="form-group mt-3">
             <div class="alert alert-warning" style="font-size:0.9rem;">
               <strong><i class="fa fa-shield"></i> Termo de Consentimento (LGPD)</strong>
               <div class="custom-control custom-checkbox mt-2">
@@ -137,18 +203,6 @@
 
 {% block scripts %}
 <script>
-  // Mascara simples para CPF: digita so digitos, formata na saída
-  function maskCpf(input) {
-    input.addEventListener('blur', function() {
-      var v = (this.value || '').replace(/\D/g, '');
-      if (v.length === 11) {
-        this.value = v.substr(0,3)+'.'+v.substr(3,3)+'.'+v.substr(6,3)+'-'+v.substr(9,2);
-      }
-    });
-  }
-  maskCpf(document.getElementById('cpf'));
-  maskCpf(document.getElementById('resp_cpf'));
-
   // ---- Autocomplete de responsavel ----
   const inputBusca = document.getElementById('resp-busca');
   const caixa = document.getElementById('resp-resultados');

@@ -32,7 +32,8 @@ def test_editar_ultimo_admin_nao_rebaixa(auth_client, app, admin):
     r = auth_client.post(f'/usuarios/{admin_id}/editar',
                          data={'nome': 'Admin', 'perfil': 'padrao'},
                          follow_redirects=False)
-    assert r.status_code in (302, 303)
+    # agora retorna 200 (render_template no erro) em vez de redirect
+    assert r.status_code in (200, 302, 303)
     with app.app_context():
         u = Usuario.query.get(admin_id)
         assert u.perfil == 'admin'

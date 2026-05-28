@@ -13,7 +13,9 @@ from sqlalchemy.orm import joinedload
 
 from werkzeug.datastructures import ImmutableMultiDict
 
-from models.models import Usuario, Paciente, Sintoma, Avaliacao, SintomaAvaliacao, VersaoPesos
+from models.models import (Usuario, Paciente, Sintoma, Avaliacao, SintomaAvaliacao,
+                           VersaoPesos, DadosSocioeconomicos,
+                           FAIXAS_RENDA, ESCOLARIDADES, BAIXA_RENDA_FAIXAS)
 from controllers.relatorio_stats import (
     montar_query, calcular_kpis, dados_por_mes, dados_por_recomendacao,
     dados_por_sexo, histograma_scores, frequencia_sintomas, por_profissional,
@@ -256,3 +258,62 @@ def export_xlsx():
     nome = f"relatorio_triagem_{date.today().isoformat()}.xlsx"
     return send_file(buf, download_name=nome, as_attachment=True,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+@relatorio_bp.route('/socioeconomico')
+@login_required
+def socioeconomico():
+    from controllers.audit import admin_required
+    from controllers.audit import admin_required as _ar
+    if not current_user.is_admin:
+        from flask import abort
+        abort(403)
+
+    # Total de pacientes ativos
+    total_pacientes = Paciente.query.filter(Paciente.removido_em.is_(None)).count()
+
+    # Pacientes com dados preenchidos
+    total_com_dados = (DadosSocioeconomicos.query
+                       .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+                       .filter(Paciente.removido_em.is_(None))
+                       .count())
+
+    cobertura_pct = round(total_com_dados / total_pacientes * 100, 1) if total_pacientes else 0.0
+
+    # Distribuicao por faixa de renda
+    from sqlalchemy import func
+    dist_renda_raw = (DadosSocioeconomicos.query
+                      .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+                      .filter(Paciente.removido_em.is_(None),
+                              DadosSocioeconomicos.renda_faixa.isnot(None))
+                      .with_entities(DadosSocioeconomicos.renda_faixa,
+                                     func.count().label('qtd'))
+                      .group_by(DadosSocioeconomicos.renda_faixa)
+                      .all())
+    renda_map = {r.renda_faixa: r.qtd for r in dist_renda_raw}
+
+    # Ordenar pelas faixas definidas e montar labels
+    dist_renda = [
+        {'chave': chave, 'label': label, 'qtd': renda_map.get(chave, 0)}
+        for chave, label in FAIXAS_RENDA
+    ]
+
+    # Pacientes de baixa renda (tabela)
+    pacientes_baixa_renda = (
+        DadosSocioeconomicos.query
+        .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+        .filter(Paciente.removido_em.is_(None),
+                DadosSocioeconomicos.renda_faixa.in_(list(BAIXA_RENDA_FAIXAS)))
+        .options(joinedload(DadosSocioeconomicos.paciente))
+        .order_by(DadosSocioeconomicos.renda_faixa, Paciente.nome)
+        .all()
+    )
+
+    return render_template('relatorios/socioeconomico.html',
+                           total_pacientes=total_pacientes,
+                           total_com_dados=total_com_dados,
+                           cobertura_pct=cobertura_pct,
+                           dist_renda=dist_renda,
+                           pacientes_baixa_renda=pacientes_baixa_renda,
+                           faixas_renda=FAIXAS_RENDA,
+                           escolaridades=ESCOLARIDADES)

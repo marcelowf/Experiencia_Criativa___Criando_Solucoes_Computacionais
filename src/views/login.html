@@ -1,13 +1,209 @@
 {% extends "base_login.html" %}
 {% block title %}<title>Login — Triagem SXF</title>{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-center align-items-center" style="min-height: 100vh;">
-  <div class="card shadow" style="width: 400px;">
-    <div class="card-body p-4">
-      <h4 class="card-title text-center mb-2">
-        <i class="fa fa-medkit text-primary"></i> Triagem SXF
-      </h4>
-      <p class="text-center text-muted small mb-4">Sistema de Triagem — Síndrome do X Frágil</p>
+<style>
+  :root {
+    --primary:       #2563EB;
+    --primary-hover: #1D4ED8;
+    --primary-dark:  #1E3A8A;
+  }
+
+  body { margin: 0; }
+
+  .login-split {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── Painel de marca (esquerda) ───────────────────────────── */
+  .login-brand {
+    flex: 1 1 50%;
+    background: linear-gradient(150deg, var(--primary-dark) 0%, var(--primary) 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 64px 56px;
+    position: relative;
+    overflow: hidden;
+  }
+  /* círculos decorativos sutis */
+  .login-brand::before,
+  .login-brand::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .login-brand::before { width: 420px; height: 420px; top: -120px; right: -120px; }
+  .login-brand::after  { width: 280px; height: 280px; bottom: -90px; left: -80px; }
+
+  .brand-content { position: relative; z-index: 1; max-width: 440px; }
+
+  .brand-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 40px;
+  }
+  .brand-logo .fa {
+    background: rgba(255, 255, 255, 0.15);
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+  }
+
+  .brand-headline {
+    font-size: 2.1rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 16px;
+  }
+  .brand-sub {
+    font-size: 1.05rem;
+    opacity: 0.85;
+    line-height: 1.6;
+    margin-bottom: 36px;
+  }
+  .brand-features { list-style: none; padding: 0; margin: 0; }
+  .brand-features li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 0.98rem;
+    opacity: 0.95;
+  }
+  .brand-features .fa {
+    background: rgba(255, 255, 255, 0.15);
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── Formulário (direita) ─────────────────────────────────── */
+  .login-form-side {
+    flex: 1 1 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 32px;
+    background: #fff;
+  }
+  .login-form-box { width: 100%; max-width: 380px; }
+
+  .login-form-box h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 6px;
+  }
+  .login-form-box .lead-sub {
+    color: #64748b;
+    font-size: 0.95rem;
+    margin-bottom: 32px;
+  }
+
+  .login-form-box .form-group { margin-bottom: 20px; }
+  .login-form-box label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #334155;
+    margin-bottom: 6px;
+  }
+  .login-form-box .form-control {
+    height: 48px;
+    border-radius: 10px;
+    border: 1.5px solid #e2e8f0;
+    padding: 0 16px;
+    font-size: 0.95rem;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .login-form-box .form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+
+  .input-icon { position: relative; }
+  .input-icon .fa {
+    position: absolute;
+    left: 16px; top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+  }
+  .input-icon .form-control { padding-left: 42px; }
+
+  .btn-login {
+    height: 48px;
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.98rem;
+    transition: background .15s, box-shadow .15s, transform .05s;
+  }
+  .btn-login:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+  }
+  .btn-login:active { transform: translateY(1px); }
+
+  .login-links { text-align: center; margin-top: 22px; }
+  .login-links a { color: var(--primary); font-size: 0.9rem; font-weight: 500; }
+  .login-links a:hover { color: var(--primary-hover); text-decoration: underline; }
+
+  .login-footer {
+    text-align: center;
+    margin-top: 40px;
+    color: #94a3b8;
+    font-size: 0.8rem;
+  }
+
+  /* ── Responsivo: esconde painel de marca em telas menores ── */
+  @media (max-width: 991px) {
+    .login-brand { display: none; }
+    .login-form-side { flex-basis: 100%; }
+  }
+</style>
+
+<div class="login-split">
+
+  <!-- Painel de marca -->
+  <div class="login-brand">
+    <div class="brand-content">
+      <div class="brand-logo">
+        <span class="fa fa-medkit"></span> Triagem SXF
+      </div>
+      <h2 class="brand-headline">Triagem inteligente da Síndrome do X Frágil</h2>
+      <p class="brand-sub">
+        Avaliação clínica padronizada, escore ponderado de sintomas e
+        acompanhamento de pacientes em um só lugar.
+      </p>
+      <ul class="brand-features">
+        <li><span class="fa fa-check"></span> Escore ponderado e versionado</li>
+        <li><span class="fa fa-qrcode"></span> Cadastro de pacientes via QR Code</li>
+        <li><span class="fa fa-bar-chart"></span> Relatórios e indicadores clínicos</li>
+        <li><span class="fa fa-lock"></span> Dados protegidos e auditados</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Formulário -->
+  <div class="login-form-side">
+    <div class="login-form-box">
+      <h1>Acesse sua conta</h1>
+      <p class="lead-sub">Entre com suas credenciais para continuar</p>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -17,26 +213,37 @@
         {% endif %}
       {% endwith %}
 
-      <form method="POST" action="{{ url_for('auth.login') }}">
+      <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
           <label for="email">E-mail</label>
-          <input type="email" class="form-control" id="email" name="email"
-                 placeholder="profissional@hospital.com" required autofocus>
+          <div class="input-icon">
+            <span class="fa fa-envelope-o"></span>
+            <input type="email" class="form-control" id="email" name="email"
+                   placeholder="profissional@hospital.com" required autofocus>
+          </div>
         </div>
         <div class="form-group">
           <label for="senha">Senha</label>
-          <input type="password" class="form-control" id="senha" name="senha"
-                 placeholder="••••••••" required>
+          <div class="input-icon">
+            <span class="fa fa-lock"></span>
+            <input type="password" class="form-control" id="senha" name="senha"
+                   placeholder="••••••••" required>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-block">
+        <button type="submit" class="btn-login">
           <i class="fa fa-sign-in"></i> Entrar
         </button>
-        <div class="text-center mt-3">
-          <a href="{{ url_for('reset.esqueci_senha') }}" class="small text-muted">Esqueci minha senha</a>
+        <div class="login-links">
+          <a href="{{ url_for('reset.esqueci_senha') }}">Esqueci minha senha</a>
         </div>
       </form>
+
+      <div class="login-footer">
+        Sistema de Triagem — Síndrome do X Frágil
+      </div>
     </div>
   </div>
+
 </div>
 {% endblock %}

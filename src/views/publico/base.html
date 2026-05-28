@@ -17,6 +17,20 @@
     .card-publico { border:none; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
     .form-group label { font-weight:500; font-size:0.95rem; }
     .btn-block { padding:12px; font-size:1.05rem; }
+
+    /* Anamnese (questionário) — mesmas regras do style.css, com cores literais */
+    .anamnese-q { margin-bottom:16px; }
+    .anamnese-pergunta { font-size:0.9rem; font-weight:600; color:#0f172a; margin-bottom:8px; }
+    .anamnese-opts { display:flex; flex-wrap:wrap; gap:8px; }
+    .anamnese-opt {
+      display:inline-flex; align-items:center; gap:7px; margin:0;
+      padding:7px 14px; border:1.5px solid #e2e8f0; border-radius:9999px;
+      cursor:pointer; font-size:0.9rem; font-weight:500; color:#64748b; background:#fff;
+      transition:border-color .15s, background .15s, color .15s;
+    }
+    .anamnese-opt:hover { border-color:#2563EB; }
+    .anamnese-opt input { margin:0; cursor:pointer; }
+    .anamnese-opt:has(input:checked) { border-color:#2563EB; background:rgba(37,99,235,0.07); color:#2563EB; }
   </style>
 </head>
 <body>
@@ -35,5 +49,7 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/form-validation.js') }}"></script>
 </body>
 </html>

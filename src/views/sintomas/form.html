@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}<title>{{ acao }} — Triagem SXF</title>{% endblock %}
 {% block content %}
+{% set fd = form_data or {} %}
 <div class="row justify-content-center">
   <div class="col-md-7">
     <div class="card shadow-sm">
@@ -9,14 +10,16 @@
       </div>
       <div class="card-body">
         <form method="POST"
-              action="{{ url_for('sintoma.editar', id=sintoma.id) if sintoma else url_for('sintoma.novo') }}">
+              action="{{ url_for('sintoma.editar', id=sintoma.id) if sintoma else url_for('sintoma.novo') }}"
+              novalidate>
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
           <div class="form-group">
             <label for="chave">Chave técnica <span class="text-danger">*</span></label>
             <input type="text" class="form-control" id="chave" name="chave"
-                   value="{{ sintoma.chave if sintoma else '' }}"
+                   value="{{ sintoma.chave if sintoma else fd.get('chave', '') }}"
                    pattern="[a-z0-9_]+"
+                   title="Use apenas letras minúsculas, números e underline (_)."
                    placeholder="ex.: deficiencia_intelectual"
                    {{ 'readonly' if sintoma }} required>
             <small class="text-muted">Use apenas letras minúsculas, números e underline. Não pode ser alterado depois.</small>
@@ -25,7 +28,7 @@
           <div class="form-group">
             <label for="label">Rótulo exibido <span class="text-danger">*</span></label>
             <input type="text" class="form-control" id="label" name="label"
-                   value="{{ sintoma.label if sintoma else '' }}" required>
+                   value="{{ sintoma.label if sintoma else fd.get('label', '') }}" required>
           </div>
 
           <div class="row">
@@ -33,14 +36,14 @@
               <label for="peso_masculino">Peso ♂ (Masculino)</label>
               <input type="number" step="0.01" min="0" max="1" class="form-control"
                      id="peso_masculino" name="peso_masculino"
-                     value="{{ sintoma.peso_masculino if sintoma and sintoma.peso_masculino is not none else '' }}"
+                     value="{{ sintoma.peso_masculino if sintoma and sintoma.peso_masculino is not none else fd.get('peso_masculino', '') }}"
                      placeholder="vazio = não se aplica">
             </div>
             <div class="col-md-6 form-group">
               <label for="peso_feminino">Peso ♀ (Feminino)</label>
               <input type="number" step="0.01" min="0" max="1" class="form-control"
                      id="peso_feminino" name="peso_feminino"
-                     value="{{ sintoma.peso_feminino if sintoma and sintoma.peso_feminino is not none else '' }}"
+                     value="{{ sintoma.peso_feminino if sintoma and sintoma.peso_feminino is not none else fd.get('peso_feminino', '') }}"
                      placeholder="vazio = não se aplica">
             </div>
           </div>
@@ -48,13 +51,13 @@
           <div class="form-group">
             <label for="descricao_clinica">Descrição clínica (tooltip no formulário de avaliação)</label>
             <textarea class="form-control" id="descricao_clinica" name="descricao_clinica"
-                      rows="4" placeholder="Texto exibido como tooltip ao profissional...">{{ sintoma.descricao_clinica if sintoma and sintoma.descricao_clinica else '' }}</textarea>
+                      rows="4" placeholder="Texto exibido como tooltip ao profissional...">{{ sintoma.descricao_clinica if sintoma and sintoma.descricao_clinica else fd.get('descricao_clinica', '') }}</textarea>
           </div>
 
           <div class="form-group">
             <div class="custom-control custom-checkbox">
               <input type="checkbox" class="custom-control-input" id="ativo" name="ativo"
-                     {{ 'checked' if (sintoma is none or sintoma.ativo) }}>
+                     {{ 'checked' if (sintoma is none and fd.get('ativo') != 'off') or (sintoma and sintoma.ativo) }}>
               <label class="custom-control-label" for="ativo">Sintoma ativo (usado em novas avaliações)</label>
             </div>
           </div>

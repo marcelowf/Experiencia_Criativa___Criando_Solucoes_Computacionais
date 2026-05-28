@@ -40,6 +40,9 @@
           <td>
             {% if qr.revogado_em %}
               <span class="badge badge-secondary">Revogado</span>
+            {% elif qr.sem_expiracao %}
+              <span class="badge badge-success">Ativo</span>
+              <span class="badge badge-info">Sem prazo</span>
             {% elif qr.valido %}
               <span class="badge badge-success">Ativo</span>
             {% else %}
@@ -57,7 +60,9 @@
             {% if qr.valido %}
             <form method="POST" action="{{ url_for('qr.revogar', id=qr.id) }}"
                   style="display:inline;"
-                  onsubmit="return confirm('Revogar este QR? O link público deixará de funcionar.')">
+                  data-confirm="O link público deixará de funcionar imediatamente."
+                  data-confirm-title="Revogar este QR?"
+                  data-confirm-ok="Revogar">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-sm btn-danger" title="Revogar">
                 <i class="fa fa-ban"></i>

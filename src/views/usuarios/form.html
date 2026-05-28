@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}<title>{{ acao }} — Triagem SXF</title>{% endblock %}
 {% block content %}
+{% set fd = form_data or {} %}
 <div class="row justify-content-center">
   <div class="col-md-6">
     <div class="card shadow-sm">
@@ -9,17 +10,18 @@
       </div>
       <div class="card-body">
         <form method="POST"
-              action="{{ url_for('usuario.editar', id=usuario.id) if usuario else url_for('usuario.novo') }}">
+              action="{{ url_for('usuario.editar', id=usuario.id) if usuario else url_for('usuario.novo') }}"
+              novalidate>
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-group">
             <label for="nome">Nome completo <span class="text-danger">*</span></label>
             <input type="text" class="form-control" id="nome" name="nome"
-                   value="{{ usuario.nome if usuario else '' }}" required>
+                   value="{{ fd.get('nome') or (usuario.nome if usuario else '') }}" required>
           </div>
           <div class="form-group">
             <label for="email">E-mail <span class="text-danger">*</span></label>
             <input type="email" class="form-control" id="email" name="email"
-                   value="{{ usuario.email if usuario else '' }}"
+                   value="{{ fd.get('email') or (usuario.email if usuario else '') }}"
                    {{ 'readonly' if usuario }} required>
             {% if usuario %}
               <small class="text-muted">O e-mail não pode ser alterado.</small>
@@ -31,16 +33,17 @@
             </label>
             <input type="password" class="form-control" id="senha" name="senha"
                    placeholder="{{ 'Nova senha (deixe em branco para manter)' if usuario else 'Senha' }}"
-                   {{ '' if usuario else 'required' }}>
+                   minlength="8" {{ '' if usuario else 'required' }} data-password-strength>
           </div>
           <div class="form-group">
             <label for="perfil">Perfil <span class="text-danger">*</span></label>
+            {% set perfil_atual = fd.get('perfil') or (usuario.perfil if usuario else 'padrao') %}
             <select class="form-control" id="perfil" name="perfil" required
                     {{ 'disabled' if eh_ultimo_admin }}>
-              <option value="padrao" {{ 'selected' if usuario and usuario.perfil == 'padrao' }}>
+              <option value="padrao" {{ 'selected' if perfil_atual == 'padrao' }}>
                 Padrão
               </option>
-              <option value="admin" {{ 'selected' if usuario and usuario.perfil == 'admin' }}>
+              <option value="admin" {{ 'selected' if perfil_atual == 'admin' }}>
                 Administrador
               </option>
             </select>

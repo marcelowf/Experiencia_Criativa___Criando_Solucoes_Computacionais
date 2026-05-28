@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color:#1f2937; font-size:13px; }
+    h1 { font-size:20px; margin-bottom:2px; }
+    .sub { color:#6b7280; font-size:12px; margin-top:0; }
+    .result { text-align:center; padding:18px; border-radius:8px; margin:18px 0; }
+    .result.enc { background:#FEE2E2; border:1px solid #DC2626; }
+    .result.nao { background:#DCFCE7; border:1px solid #16A34A; }
+    .result h2 { margin:4px 0; font-size:22px; }
+    .result .enc-txt { color:#DC2626; }
+    .result .nao-txt { color:#16A34A; }
+    .score { font-size:18px; font-weight:bold; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #e5e7eb; padding:6px 8px; text-align:left; font-size:12px; }
+    th { background:#f3f4f6; }
+    .footer { margin-top:24px; color:#9ca3af; font-size:11px; }
+  </style>
+</head>
+<body>
+  <h1>Resultado da Triagem — Síndrome do X Frágil</h1>
+  <p class="sub">
+    Paciente: <strong>{{ paciente.nome }}</strong> ·
+    {{ avaliacao.data.strftime('%d/%m/%Y') }}
+    {% if avaliacao.versao_pesos %} · Pesos {{ avaliacao.versao_pesos.nome }}{% endif %}
+  </p>
+
+  {% if avaliacao.recomendacao == 'ENCAMINHAR' %}
+  <div class="result enc">
+    <h2 class="enc-txt">ENCAMINHAR</h2>
+    <p>Este paciente deve ser encaminhado para teste genético confirmatório.</p>
+    <div class="score enc-txt">{{ '%.4f'|format(avaliacao.score) }} <span style="font-weight:normal;color:#6b7280;">/ limiar {{ '%.2f'|format(limiar) }}</span></div>
+  </div>
+  {% else %}
+  <div class="result nao">
+    <h2 class="nao-txt">NÃO ENCAMINHAR</h2>
+    <p>Score abaixo do limiar clínico. Encaminhamento não indicado no momento.</p>
+    <div class="score nao-txt">{{ '%.4f'|format(avaliacao.score) }} <span style="font-weight:normal;color:#6b7280;">/ limiar {{ '%.2f'|format(limiar) }}</span></div>
+  </div>
+  {% endif %}
+
+  <h3 style="font-size:14px;">Sintomas avaliados</h3>
+  <table>
+    <thead>
+      <tr><th>Sintoma</th><th style="width:80px; text-align:center;">Presente</th></tr>
+    </thead>
+    <tbody>
+      {% for sa in avaliacao.sintomas %}
+      <tr>
+        <td>{{ sa.sintoma.label }}</td>
+        <td style="text-align:center;">{{ 'Sim' if sa.presente else 'Não' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="footer">
+    Documento gerado automaticamente pelo sistema Triagem SXF.
+    Este resultado é um apoio à decisão clínica e não substitui avaliação profissional.
+  </p>
+</body>
+</html>

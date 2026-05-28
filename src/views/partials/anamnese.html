@@ -1,0 +1,59 @@
+{# Macros da seção de Anamnese (história clínica/familiar — Q1..Q8).
+   Reutilizado no form admin (pacientes/form.html) e no cadastro público.
+   `fd` = form_data (dict, pode ser vazio); `an` = objeto Anamnese ou None. #}
+
+{% macro _radio(name, value, label, selected) %}
+<label class="anamnese-opt">
+  <input type="radio" name="{{ name }}" value="{{ value }}" {{ 'checked' if selected == value }}>
+  <span>{{ label }}</span>
+</label>
+{% endmacro %}
+
+{% macro bool_group(num, pergunta, name, fd, current) %}
+{% set sel = fd.get(name) %}
+{% if not sel %}{% if current is sameas true %}{% set sel = 'sim' %}{% elif current is sameas false %}{% set sel = 'nao' %}{% endif %}{% endif %}
+<div class="anamnese-q">
+  <p class="anamnese-pergunta">{{ num }}. {{ pergunta }}</p>
+  <div class="anamnese-opts">
+    {{ _radio(name, 'nao', 'Não', sel) }}
+    {{ _radio(name, 'sim', 'Sim', sel) }}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro tri_group(num, pergunta, name, fd, current) %}
+{% set sel = fd.get(name) or current or '' %}
+<div class="anamnese-q">
+  <p class="anamnese-pergunta">{{ num }}. {{ pergunta }}</p>
+  <div class="anamnese-opts">
+    {{ _radio(name, 'nao', 'Não', sel) }}
+    {{ _radio(name, 'sim', 'Sim', sel) }}
+    {{ _radio(name, 'nao_sei', 'Não sei', sel) }}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro anamnese_fields(fd, an) %}
+{{ bool_group(1, 'Já fez exame de DNA (sangue, saliva, etc.) para detectar a Síndrome do X Frágil (SXF)?', 'an_ja_fez_exame_dna', fd, an.ja_fez_exame_dna if an else none) }}
+{{ bool_group(2, 'Tem interesse em fazer o exame de DNA para X Frágil (PCR)?', 'an_interesse_exame_pcr', fd, an.interesse_exame_pcr if an else none) }}
+
+<div class="anamnese-q">
+  <p class="anamnese-pergunta">3. Se já tem resultado confirmado por laboratório, qual foi (conforme o nº de repetições CGG)?</p>
+  {% set rsel = fd.get('an_resultado_exame') or (an.resultado_exame if an else '') %}
+  <select class="form-control form-control-sm" name="an_resultado_exame">
+    <option value="">Não se aplica / não tenho resultado</option>
+    <option value="mutacao_completa" {{ 'selected' if rsel == 'mutacao_completa' }}>Mutação Completa (+200 repetições)</option>
+    <option value="pre_mutacao"      {{ 'selected' if rsel == 'pre_mutacao' }}>Pré-mutação (55 a 199 repetições)</option>
+    <option value="zona_gray"        {{ 'selected' if rsel == 'zona_gray' }}>Zona Gray / Intermediária (45 a 54 repetições)</option>
+    <option value="mosaicismo"       {{ 'selected' if rsel == 'mosaicismo' }}>Mosaicismo</option>
+    <option value="negativo"         {{ 'selected' if rsel == 'negativo' }}>Negativo para X Frágil (até 39 repetições)</option>
+    <option value="nao_sei"          {{ 'selected' if rsel == 'nao_sei' }}>Não sei</option>
+  </select>
+</div>
+
+{{ bool_group(4, 'Possui diagnóstico de AUTISMO?', 'an_diagnostico_autismo', fd, an.diagnostico_autismo if an else none) }}
+{{ bool_group(5, 'Tem IRMÃOS?', 'an_tem_irmaos', fd, an.tem_irmaos if an else none) }}
+{{ tri_group(6, 'Há alguém na família com deficiência intelectual, atraso de desenvolvimento, dificuldades de aprendizagem ou autismo?', 'an_familia_neurodesenvolvimento', fd, an.familia_neurodesenvolvimento if an else none) }}
+{{ tri_group(7, 'Há antecedentes na família com diagnóstico de menopausa precoce?', 'an_familia_menopausa_precoce', fd, an.familia_menopausa_precoce if an else none) }}
+{{ tri_group(8, 'Há antecedentes na família com ataxia (descoordenação motora) e tremores?', 'an_familia_ataxia_tremores', fd, an.familia_ataxia_tremores if an else none) }}
+{% endmacro %}

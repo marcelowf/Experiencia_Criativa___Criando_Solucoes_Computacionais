@@ -59,7 +59,9 @@
             </a>
             <form method="POST" action="{{ url_for('paciente.remover', id=p.id) }}"
                   style="display:inline;"
-                  onsubmit="return confirm('Remover {{ p.nome }}? (poderá ser restaurado pelo admin)')">
+                  data-confirm="{{ p.nome }} será removido (poderá ser restaurado por um admin)."
+                  data-confirm-title="Remover paciente?"
+                  data-confirm-ok="Remover">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-sm btn-danger" title="Remover">
                 <i class="fa fa-trash"></i>

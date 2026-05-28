@@ -14,17 +14,17 @@
       {% endfor %}
     {% endwith %}
 
-    <form method="POST" action="{{ url_for('reset.reset_senha', token=token) }}">
+    <form method="POST" action="{{ url_for('reset.reset_senha', token=token) }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="senha">Nova senha</label>
         <input type="password" class="form-control" id="senha" name="senha"
-               minlength="8" required autofocus>
+               minlength="8" required autofocus data-password-strength>
       </div>
       <div class="form-group">
         <label for="confirmar">Confirmar senha</label>
         <input type="password" class="form-control" id="confirmar" name="confirmar"
-               minlength="8" required>
+               minlength="8" required data-confirm="#senha">
       </div>
       <button type="submit" class="btn btn-primary btn-block">
         <i class="fa fa-save"></i> Definir nova senha

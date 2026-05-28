@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}<title>Perfil Socioeconômico — Triagem SXF</title>{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Perfil Socioeconômico</h1>
+    <p class="page-subtitle">
+      Dados opcionais coletados no cadastro. A decisão sobre desconto no exame é feita fora do sistema.
+    </p>
+  </div>
+</div>
+
+<!-- KPIs de cobertura -->
+<div class="row mb-4">
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="fa fa-users"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ total_pacientes }}</div>
+        <div class="stat-label">Total de pacientes</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="fa fa-bar-chart"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ total_com_dados }}</div>
+        <div class="stat-label">Com dados socioecon.</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon {% if cobertura_pct >= 50 %}green{% else %}warning{% endif %}">
+        <i class="fa fa-percent"></i>
+      </div>
+      <div class="stat-body">
+        <div class="stat-value">{{ cobertura_pct }}%</div>
+        <div class="stat-label">Cobertura</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6 mb-3">
+    <div class="stat-card">
+      <div class="stat-icon red"><i class="fa fa-exclamation-triangle"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ pacientes_baixa_renda | length }}</div>
+        <div class="stat-label">Perfil baixa renda</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if total_com_dados > 0 %}
+<!-- Distribuição de renda -->
+<div class="row mb-4">
+  <div class="col-lg-5 mb-4">
+    <div class="card h-100">
+      <div class="card-header">Distribuição por faixa de renda</div>
+      <div class="card-body">
+        <canvas id="chart-renda" height="260"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7 mb-4">
+    <div class="card h-100">
+      <div class="card-header">Detalhamento por faixa</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr><th>Faixa de renda</th><th class="text-center">Pacientes</th></tr>
+          </thead>
+          <tbody>
+            {% for item in dist_renda %}
+            <tr>
+              <td>{{ item.label }}</td>
+              <td class="text-center">
+                {% if item.qtd %}
+                  <span class="badge badge-{{ 'danger' if item.chave in ['sem_renda','ate_1sm'] else 'secondary' }}">
+                    {{ item.qtd }}
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Lista de baixa renda -->
+{% if pacientes_baixa_renda %}
+<div class="card mb-4">
+  <div class="card-header">
+    <i class="fa fa-list"></i>
+    Pacientes com perfil de baixa renda
+    <small class="text-muted">(sem renda ou até 1 SM)</small>
+    <span class="badge badge-danger float-right">{{ pacientes_baixa_renda | length }}</span>
+  </div>
+  <div class="card-body p-0">
+    <table id="tabela-baixa-renda" class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th>Paciente</th>
+          <th>Renda</th>
+          <th class="d-none d-md-table-cell">Profissão</th>
+          <th class="d-none d-md-table-cell">Dependentes</th>
+          <th class="d-none d-lg-table-cell">Escolaridade</th>
+          <th class="text-center">Ver</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for se in pacientes_baixa_renda %}
+        <tr>
+          <td>{{ se.paciente.nome }}</td>
+          <td>
+            {% if se.renda_faixa == 'sem_renda' %}
+              <span class="badge badge-danger">Sem renda</span>
+            {% elif se.renda_faixa == 'ate_1sm' %}
+              <span class="badge badge-warning">Até 1 SM</span>
+            {% else %}
+              {{ se.renda_faixa }}
+            {% endif %}
+          </td>
+          <td class="d-none d-md-table-cell">{{ se.profissao or '—' }}</td>
+          <td class="d-none d-md-table-cell text-center">
+            {{ se.num_dependentes if se.num_dependentes is not none else '—' }}
+          </td>
+          <td class="d-none d-lg-table-cell">
+            {% if se.escolaridade %}
+              {% for chave, label in escolaridades %}{% if chave == se.escolaridade %}{{ label }}{% endif %}{% endfor %}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('paciente.detalhe', id=se.id_paciente) }}"
+               class="btn btn-sm btn-info">
+              <i class="fa fa-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% elif total_com_dados > 0 %}
+<div class="alert alert-success">
+  Nenhum paciente com perfil de baixa renda encontrado nos dados coletados.
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon"><i class="fa fa-bar-chart"></i></div>
+  <div class="empty-state-title">Nenhum dado socioeconômico coletado ainda</div>
+  <div class="empty-state-text">
+    Os campos socioeconômicos são opcionais no cadastro do paciente.
+    Quando preenchidos, aparecem aqui.
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if total_com_dados > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const dist = {{ dist_renda | tojson }};
+  const labels = dist.map(d => d.label);
+  const values = dist.map(d => d.qtd);
+  const colors = dist.map(d =>
+    d.chave === 'sem_renda' ? '#DC2626' :
+    d.chave === 'ate_1sm'   ? '#D97706' :
+    d.chave === '1_3sm'     ? '#16A34A' :
+    d.chave === '3_5sm'     ? '#2563EB' : '#9CA3AF'
+  );
+  new Chart(document.getElementById('chart-renda'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+</script>
+{% endif %}
+{% if pacientes_baixa_renda %}
+<script>
+  $('#tabela-baixa-renda').DataTable({
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+    order: [[0, 'asc']],
+    columnDefs: [{ orderable: false, targets: -1 }]
+  });
+</script>
+{% endif %}
+{% endblock %}

@@ -50,7 +50,9 @@
               {% else %}
                 <form method="POST" action="{{ url_for('usuario.remover', id=u.id) }}"
                       style="display:inline;"
-                      onsubmit="return confirm('Remover {{ u.nome }}?')">
+                      data-confirm="O usuário {{ u.nome }} será removido."
+                      data-confirm-title="Remover usuário?"
+                      data-confirm-ok="Remover">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="btn btn-sm btn-danger" title="Remover">
                     <i class="fa fa-trash"></i>

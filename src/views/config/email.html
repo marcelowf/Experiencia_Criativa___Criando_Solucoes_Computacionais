@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}<title>Configuração de E-mail — Triagem SXF</title>{% endblock %}
+{% block content %}
+{% set fd = form_data or {} %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Configuração de E-mail</h1>
+    <p class="page-subtitle">
+      Envio via Gmail (SMTP). Use uma <strong>Senha de App</strong> da conta Google — não a senha normal.
+    </p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-7 mb-4">
+    <div class="card">
+      <div class="card-header">
+        <i class="fa fa-envelope"></i> Remetente
+        {% if configurado %}
+          <span class="badge badge-success float-right">Ativo</span>
+        {% elif config and not config.ativo %}
+          <span class="badge badge-secondary float-right">Desativado</span>
+        {% else %}
+          <span class="badge badge-warning float-right">Não configurado</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('email_config.index') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="form-group">
+            <label for="remetente_email">E-mail remetente (Gmail) <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" id="remetente_email" name="remetente_email"
+                   value="{{ fd.get('remetente_email') or (config.remetente_email if config else '') }}"
+                   placeholder="seu-consultorio@gmail.com" required>
+          </div>
+
+          <div class="form-group">
+            <label for="remetente_nome">Nome de exibição</label>
+            <input type="text" class="form-control" id="remetente_nome" name="remetente_nome"
+                   value="{{ fd.get('remetente_nome') or (config.remetente_nome if config else 'Triagem SXF') }}">
+          </div>
+
+          <div class="form-group">
+            <label for="senha_app">
+              Senha de App do Google
+              {% if not config %}<span class="text-danger">*</span>{% endif %}
+            </label>
+            <input type="password" class="form-control" id="senha_app" name="senha_app"
+                   placeholder="{{ 'Deixe em branco para manter a senha atual' if config else '16 caracteres da Senha de App' }}"
+                   {{ '' if config else 'required' }}>
+            <small class="text-muted">
+              Gere em <em>Conta Google → Segurança → Senhas de app</em> (requer verificação em 2 etapas).
+              {% if config %}A senha atual fica guardada cifrada e não é exibida.{% endif %}
+            </small>
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            <i class="fa fa-save"></i> Salvar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5 mb-4">
+    <div class="card">
+      <div class="card-header"><i class="fa fa-cogs"></i> Ações</div>
+      <div class="card-body">
+        {% if configurado %}
+        <form method="POST" action="{{ url_for('email_config.testar') }}" class="mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline-primary btn-block">
+            <i class="fa fa-paper-plane"></i> Enviar e-mail de teste para mim
+          </button>
+        </form>
+        <form method="POST" action="{{ url_for('email_config.desativar') }}"
+              data-confirm="Os disparos de e-mail param de funcionar."
+              data-confirm-title="Desativar envio de e-mail?"
+              data-confirm-ok="Desativar">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline-danger btn-block">
+            <i class="fa fa-ban"></i> Desativar envio
+          </button>
+        </form>
+        {% else %}
+        <p class="text-muted mb-0">
+          Salve uma configuração válida para habilitar o teste de envio e os disparos
+          (recuperação de senha, QR de cadastro e resultado de exame).
+        </p>
+        {% endif %}
+
+        <hr>
+        <p class="small text-muted mb-0">
+          <i class="fa fa-info-circle"></i>
+          Se a chave de segurança do servidor (<code>SECRET_KEY</code>) mudar, a senha guardada
+          deixa de funcionar e será necessário reconfigurar.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -14,7 +14,7 @@
       {% endfor %}
     {% endwith %}
 
-    <form method="POST" action="{{ url_for('reset.esqueci_senha') }}">
+    <form method="POST" action="{{ url_for('reset.esqueci_senha') }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="email">E-mail</label>

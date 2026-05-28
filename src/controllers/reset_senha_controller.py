@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from models.models import db, Usuario, SenhaFracaError
 from controllers.audit import log_audit
+from controllers.email_service import email_configurado, enviar_email
 
 reset_bp = Blueprint('reset', __name__)
 
@@ -27,7 +28,20 @@ def esqueci_senha():
             usuario.token_reset_expira_em = datetime.utcnow() + timedelta(hours=TOKEN_VALIDADE_HORAS)
             db.session.commit()
             link = url_for('reset.reset_senha', token=token, _external=True)
-            flash(f'{msg_padrao} Para fins de desenvolvimento, o link é: {link}', 'info')
+            if email_configurado():
+                corpo = (f'<p>Recebemos um pedido para redefinir sua senha.</p>'
+                         f'<p><a href="{link}">Clique aqui para criar uma nova senha</a> '
+                         f'(válido por {TOKEN_VALIDADE_HORAS}h).</p>'
+                         f'<p>Se não foi você, ignore este e-mail.</p>')
+                try:
+                    enviar_email(usuario.email, 'Recuperação de senha — Triagem SXF', corpo)
+                    flash(msg_padrao, 'info')
+                except Exception:
+                    # Falha no envio nao revela existencia do email; loga link como fallback dev
+                    flash(f'{msg_padrao} (Falha no envio; link de desenvolvimento: {link})', 'info')
+            else:
+                # Sem SMTP configurado: fallback dev mostra o link
+                flash(f'{msg_padrao} Para fins de desenvolvimento, o link é: {link}', 'info')
         else:
             flash(msg_padrao, 'info')
         return redirect(url_for('auth.login'))

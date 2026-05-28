@@ -16,6 +16,11 @@
     </p>
   </div>
   <div class="page-header-actions">
+    {% if email_ok %}
+    <button type="button" class="btn btn-primary" onclick="toggleEnvioEmail()">
+      <i class="fa fa-envelope"></i> Enviar por e-mail
+    </button>
+    {% endif %}
     <button onclick="window.print()" class="btn btn-secondary">
       <i class="fa fa-print"></i> Imprimir
     </button>
@@ -24,6 +29,29 @@
     </a>
   </div>
 </div>
+
+{% if email_ok %}
+<div class="card mb-4" id="envio-email-card" style="display:none;">
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('avaliacao.enviar_email_resultado', id=avaliacao.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="email_destino"><strong>Enviar resultado (PDF) para:</strong></label>
+      <div class="input-group">
+        <input type="email" class="form-control" id="email_destino" name="email_destino"
+               value="{{ email_sugerido }}" placeholder="email@exemplo.com" required>
+        <div class="input-group-append">
+          <button type="submit" class="btn btn-primary">
+            <i class="fa fa-paper-plane"></i> Enviar
+          </button>
+        </div>
+      </div>
+      {% if email_sugerido %}
+      <small class="text-muted">Sugerido a partir do e-mail do responsável.</small>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <!-- Card de resultado -->
 {% if avaliacao.recomendacao == 'ENCAMINHAR' %}
@@ -91,5 +119,13 @@
     <i class="fa fa-history"></i> Ver Histórico
   </a>
 </div>
+{% endblock %}
 
+{% block scripts %}
+<script>
+  function toggleEnvioEmail() {
+    var card = document.getElementById('envio-email-card');
+    if (card) card.style.display = (card.style.display === 'none') ? 'block' : 'none';
+  }
+</script>
 {% endblock %}

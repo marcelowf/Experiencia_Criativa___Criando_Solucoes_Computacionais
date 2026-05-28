@@ -1,11 +1,89 @@
 import re
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, jsonify
 from flask_login import login_required, current_user
-from models.models import db, Paciente, Responsavel
+from models.models import db, Paciente, Responsavel, DadosSocioeconomicos, Anamnese
 from controllers.audit import log_audit
 from datetime import date
 
 paciente_bp = Blueprint('paciente', __name__, url_prefix='/pacientes')
+
+
+def _bool_sim_nao(valor):
+    """'sim' -> True, 'nao' -> False, qualquer outro/vazio -> None (não respondido)."""
+    v = (valor or '').strip()
+    if v == 'sim':
+        return True
+    if v == 'nao':
+        return False
+    return None
+
+
+def _tri(valor):
+    """Normaliza campo ternário: 'sim'/'nao'/'nao_sei' ou None."""
+    v = (valor or '').strip()
+    return v if v in ('sim', 'nao', 'nao_sei') else None
+
+
+def _salvar_anamnese(paciente, form):
+    """Cria ou atualiza a Anamnese (contexto clínico/familiar) do paciente.
+
+    Campos prefixados `an_` no form. Se nada foi respondido, não cria/altera.
+    """
+    ja_fez   = _bool_sim_nao(form.get('an_ja_fez_exame_dna'))
+    interesse = _bool_sim_nao(form.get('an_interesse_exame_pcr'))
+    RESULTADOS = {'mutacao_completa', 'pre_mutacao', 'zona_gray',
+                  'mosaicismo', 'negativo', 'nao_sei'}
+    resultado = (form.get('an_resultado_exame') or '').strip() or None
+    if resultado not in RESULTADOS:
+        resultado = None
+    autismo  = _bool_sim_nao(form.get('an_diagnostico_autismo'))
+    irmaos   = _bool_sim_nao(form.get('an_tem_irmaos'))
+    fam_neuro = _tri(form.get('an_familia_neurodesenvolvimento'))
+    fam_meno  = _tri(form.get('an_familia_menopausa_precoce'))
+    fam_ataxia = _tri(form.get('an_familia_ataxia_tremores'))
+
+    valores = [ja_fez, interesse, resultado, autismo, irmaos,
+               fam_neuro, fam_meno, fam_ataxia]
+    if all(v is None for v in valores):
+        return
+
+    a = paciente.anamnese
+    if a is None:
+        a = Anamnese(id_paciente=paciente.id)
+        db.session.add(a)
+    a.ja_fez_exame_dna = ja_fez
+    a.interesse_exame_pcr = interesse
+    a.resultado_exame = resultado
+    a.diagnostico_autismo = autismo
+    a.tem_irmaos = irmaos
+    a.familia_neurodesenvolvimento = fam_neuro
+    a.familia_menopausa_precoce = fam_meno
+    a.familia_ataxia_tremores = fam_ataxia
+
+
+def _salvar_dados_socioeconomicos(paciente, form):
+    """Cria ou atualiza DadosSocioeconomicos do paciente a partir do form.
+
+    Se todos os campos socioecon forem vazios, nao cria/altera o registro.
+    """
+    renda = (form.get('se_renda_faixa') or '').strip() or None
+    profissao = (form.get('se_profissao') or '').strip() or None
+    escolaridade = (form.get('se_escolaridade') or '').strip() or None
+    num_dep_raw = (form.get('se_num_dependentes') or '').strip()
+    num_dep = int(num_dep_raw) if num_dep_raw.isdigit() else None
+
+    algum_preenchido = any([renda, profissao, escolaridade, num_dep is not None])
+    if not algum_preenchido:
+        return
+
+    dados = paciente.dados_socioeconomicos
+    if dados is None:
+        dados = DadosSocioeconomicos(id_paciente=paciente.id)
+        db.session.add(dados)
+    dados.renda_faixa = renda
+    dados.profissao = profissao
+    dados.escolaridade = escolaridade
+    dados.num_dependentes = num_dep
 
 
 def _check_ownership(paciente, permitir_removido=False):
@@ -175,17 +253,23 @@ def novo():
             return render_template('pacientes/form.html', paciente=None, form_data=request.form, acao='Cadastrar Paciente')
         sexo = request.form['sexo']
         data_nasc = date.fromisoformat(request.form['data_nascimento'])
+        email_paciente = (request.form.get('email') or '').strip() or None
         id_responsavel = _resolver_responsavel(request.form)
         paciente = Paciente(
             nome=nome, cpf=cpf, sexo=sexo, data_nascimento=data_nasc,
+            email=email_paciente,
             id_responsavel=id_responsavel, id_usuario=current_user.id,
             consentimento_dado_em=datetime.utcnow(),
         )
         db.session.add(paciente)
+        db.session.flush()
+        _salvar_dados_socioeconomicos(paciente, request.form)
+        _salvar_anamnese(paciente, request.form)
         db.session.commit()
         log_audit('CREATE', entidade='paciente', id_entidade=paciente.id, detalhes={
             'nome': nome, 'cpf': cpf, 'sexo': sexo,
             'data_nascimento': data_nasc.isoformat(),
+            'email': email_paciente,
             'id_responsavel': id_responsavel,
         })
         flash(f'Paciente {nome} cadastrado com sucesso.', 'success')
@@ -211,17 +295,22 @@ def editar(id):
         antes = {
             'nome': paciente.nome, 'cpf': paciente.cpf, 'sexo': paciente.sexo,
             'data_nascimento': paciente.data_nascimento.isoformat(),
+            'email': paciente.email,
             'id_responsavel': paciente.id_responsavel,
         }
         paciente.nome = request.form['nome'].strip()
         paciente.cpf = cpf
         paciente.sexo = request.form['sexo']
         paciente.data_nascimento = date.fromisoformat(request.form['data_nascimento'])
+        paciente.email = (request.form.get('email') or '').strip() or None
         paciente.id_responsavel = _resolver_responsavel(request.form)
+        _salvar_dados_socioeconomicos(paciente, request.form)
+        _salvar_anamnese(paciente, request.form)
         db.session.commit()
         depois = {
             'nome': paciente.nome, 'cpf': paciente.cpf, 'sexo': paciente.sexo,
             'data_nascimento': paciente.data_nascimento.isoformat(),
+            'email': paciente.email,
             'id_responsavel': paciente.id_responsavel,
         }
         log_audit('UPDATE', entidade='paciente', id_entidade=paciente.id,

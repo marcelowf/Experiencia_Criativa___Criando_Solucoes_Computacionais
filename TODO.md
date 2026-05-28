@@ -1,9 +1,11 @@
 # TODO
 
 ## Geral
-- [ ] Implementar versão mobile
+- [ ] Implementar versão mobile e com isso corrigir problemas de responsividade em geral
 - [ ] Realizar testes de usabilidade
 - [ ] Review avançada de UX (comportamento das telas, fields, botões, autocompletes, etc)
-- [ ] Remover botões redundantes (mais de um botão na mesma tela executando a mesma ação)
-- [ ] Corrigir problemas de responsividade com valores grandes em certos fields
-- [ ] Disparo de e-mail para recuperação de senha / envio do formulario de QRCode. Isso deve ser feito por uma tela, onde voce pode colocar o email e a chave do Google para envio de email de app pelo email que voce quiser
+
+animações ao brir telas, cards, etc... 
+refino do design (cores, espaçamento, logos, wallpapers, animações, etc)
+
+login com o google?

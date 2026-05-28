@@ -46,6 +46,12 @@
         <i class="fa fa-bar-chart nav-icon"></i> Relatórios
       </a>
       {% if current_user.is_admin %}
+      <a class="sidebar-nav-item {% if request.endpoint == 'relatorio.socioeconomico' %}active{% endif %}"
+         href="{{ url_for('relatorio.socioeconomico') }}">
+        <i class="fa fa-users nav-icon"></i> Socioeconômico
+      </a>
+      {% endif %}
+      {% if current_user.is_admin %}
       <span class="sidebar-nav-section">Administração</span>
       <a class="sidebar-nav-item {% if request.endpoint and 'usuario' in request.endpoint %}active{% endif %}"
          href="{{ url_for('usuario.lista') }}">
@@ -58,6 +64,10 @@
       <a class="sidebar-nav-item {% if request.endpoint and 'logs' in request.endpoint %}active{% endif %}"
          href="{{ url_for('logs.index') }}">
         <i class="fa fa-history nav-icon"></i> Auditoria
+      </a>
+      <a class="sidebar-nav-item {% if request.endpoint and request.endpoint.startswith('email_config.') %}active{% endif %}"
+         href="{{ url_for('email_config.index') }}">
+        <i class="fa fa-envelope nav-icon"></i> E-mail
       </a>
       {% endif %}
     </nav>
@@ -131,11 +141,27 @@
 
 </div><!-- /app-wrapper -->
 
+<!-- Modal de confirmação reutilizável (substitui window.confirm) -->
+<div class="confirm-overlay" id="confirmOverlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="confirm-card">
+    <div class="confirm-body">
+      <div class="confirm-icon" id="confirmIcon"><i class="fa fa-exclamation-triangle"></i></div>
+      <h5 class="confirm-title" id="confirmTitle">Confirmar ação</h5>
+      <p class="confirm-message" id="confirmMessage"></p>
+    </div>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-secondary" id="confirmCancel">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="confirmOk">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <script src="{{ url_for('static', filename='js/jquery-3.5.1.js') }}"></script>
 <script src="{{ url_for('static', filename='js/popper.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/jquery.dataTables.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dataTables.bootstrap4.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/form-validation.js') }}"></script>
 <script>
   (function () {
     var sidebar  = document.getElementById('sidebar');
@@ -145,6 +171,62 @@
     function close() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
     if (toggle)  toggle.addEventListener('click', function() { sidebar.classList.contains('open') ? close() : open(); });
     if (overlay) overlay.addEventListener('click', close);
+  })();
+
+  // Modal de confirmação — intercepta forms com [data-confirm]
+  (function () {
+    var overlay = document.getElementById('confirmOverlay');
+    if (!overlay) return;
+    var card    = overlay.querySelector('.confirm-card');
+    var iconBox = document.getElementById('confirmIcon');
+    var titleEl = document.getElementById('confirmTitle');
+    var msgEl   = document.getElementById('confirmMessage');
+    var okBtn   = document.getElementById('confirmOk');
+    var cancel  = document.getElementById('confirmCancel');
+    var pendingForm = null;
+
+    function open(form) {
+      pendingForm = form;
+      msgEl.textContent   = form.getAttribute('data-confirm') || 'Tem certeza?';
+      titleEl.textContent = form.getAttribute('data-confirm-title') || 'Confirmar ação';
+      okBtn.textContent   = form.getAttribute('data-confirm-ok') || 'Confirmar';
+
+      var tipo = form.getAttribute('data-confirm-type') || 'danger';
+      iconBox.className = 'confirm-icon ' + tipo;
+      okBtn.className   = 'btn btn-' + (tipo === 'warning' ? 'warning' : tipo === 'primary' ? 'primary' : 'danger');
+      iconBox.querySelector('i').className =
+        'fa ' + (tipo === 'primary' ? 'fa-question-circle' : 'fa-exclamation-triangle');
+
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      okBtn.focus();
+    }
+    function close() {
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      pendingForm = null;
+    }
+
+    document.addEventListener('submit', function (e) {
+      var form = e.target;
+      if (form.hasAttribute && form.hasAttribute('data-confirm') && !form.dataset.confirmed) {
+        e.preventDefault();
+        open(form);
+      }
+    }, true);
+
+    okBtn.addEventListener('click', function () {
+      if (!pendingForm) return;
+      pendingForm.dataset.confirmed = '1';   // evita reabrir o modal
+      var f = pendingForm;
+      close();
+      f.submit();
+    });
+    cancel.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && overlay.classList.contains('open')) close();
+    });
   })();
 </script>
 {% block scripts %}{% endblock %}

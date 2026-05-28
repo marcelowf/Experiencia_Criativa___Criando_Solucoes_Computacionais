@@ -1,10 +1,21 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort
+from flask import Blueprint, render_template, redirect, url_for, request, abort, flash
 from flask_login import login_required, current_user
 from models.models import db, Avaliacao, Paciente, SintomaAvaliacao
 from controllers.scoring import calcular_score, get_sintomas_para_sexo, get_limiar
 from controllers.audit import log_audit
 from controllers.versoes_pesos import versao_ativa
+from controllers.email_service import (email_configurado, email_destino, enviar_email,
+                                       EmailNaoConfiguradoError, SenhaAppInvalidaError)
 from datetime import date
+
+
+def _resultado_pdf_bytes(avaliacao):
+    from weasyprint import HTML
+    html_str = render_template('avaliacoes/resultado_pdf.html',
+                               avaliacao=avaliacao,
+                               paciente=avaliacao.paciente,
+                               limiar=get_limiar(avaliacao.paciente.sexo))
+    return HTML(string=html_str, base_url=request.host_url).write_pdf()
 
 avaliacao_bp = Blueprint('avaliacao', __name__, url_prefix='/avaliacoes')
 
@@ -76,7 +87,38 @@ def resultado(id):
     return render_template('avaliacoes/resultado.html',
                            avaliacao=avaliacao,
                            paciente=avaliacao.paciente,
-                           limiar=get_limiar(avaliacao.paciente.sexo))
+                           limiar=get_limiar(avaliacao.paciente.sexo),
+                           email_ok=email_configurado(),
+                           email_sugerido=email_destino(avaliacao.paciente))
+
+
+@avaliacao_bp.route('/<int:id>/enviar-email', methods=['POST'])
+@login_required
+def enviar_email_resultado(id):
+    avaliacao = db.get_or_404(Avaliacao, id)
+    _check_access(avaliacao.id_usuario)
+    destino = (request.form.get('email_destino') or '').strip()
+    if not destino:
+        flash('Informe o e-mail de destino.', 'danger')
+        return redirect(url_for('avaliacao.resultado', id=id))
+
+    corpo = (f'<p>Segue em anexo o resultado da triagem de '
+             f'<strong>{avaliacao.paciente.nome}</strong> '
+             f'realizada em {avaliacao.data.strftime("%d/%m/%Y")}.</p>')
+    try:
+        pdf = _resultado_pdf_bytes(avaliacao)
+        enviar_email(destino, 'Resultado da triagem — Triagem SXF', corpo,
+                     anexos=[('resultado_triagem.pdf', pdf, 'application/pdf')])
+        log_audit('EMAIL_ENVIADO', entidade='avaliacao', id_entidade=id,
+                  detalhes={'para': destino})
+        flash(f'Resultado enviado para {destino}.', 'success')
+    except EmailNaoConfiguradoError:
+        flash('Configure o e-mail em Administração antes de enviar.', 'danger')
+    except SenhaAppInvalidaError as e:
+        flash(str(e), 'danger')
+    except Exception as e:
+        flash(f'Falha ao enviar: {e}', 'danger')
+    return redirect(url_for('avaliacao.resultado', id=id))
 
 
 @avaliacao_bp.route('/historico/<int:id_paciente>')

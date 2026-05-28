@@ -15,7 +15,10 @@ from flask_login import login_required, current_user
 
 from models.models import db, Paciente, QrCadastroToken
 from controllers.audit import log_audit
-from controllers.paciente_controller import _normalizar_cpf, _resolver_responsavel
+from controllers.paciente_controller import (_normalizar_cpf, _resolver_responsavel,
+                                              _salvar_anamnese)
+from controllers.email_service import (email_configurado, enviar_email,
+                                       EmailNaoConfiguradoError, SenhaAppInvalidaError)
 
 
 TOKEN_VALIDADE_HORAS = 24
@@ -86,7 +89,8 @@ def detalhe(id):
     _check_ownership_qr(qr)
     link_publico = url_for('publico.cadastro_paciente', token=qr.token, _external=True)
     return render_template('qr/detalhe.html', qr=qr, link_publico=link_publico,
-                           pacientes_criados=_pacientes_criados_via(qr))
+                           pacientes_criados=_pacientes_criados_via(qr),
+                           email_ok=email_configurado())
 
 
 @qr_bp.route('/<int:id>/imagem.png')
@@ -101,6 +105,87 @@ def imagem(id):
     buf.seek(0)
     return send_file(buf, mimetype='image/png',
                      download_name=f'qr_cadastro_{qr.id}.png')
+
+
+@qr_bp.route('/<int:id>/enviar-email', methods=['POST'])
+@login_required
+def enviar_email_qr(id):
+    qr = db.get_or_404(QrCadastroToken, id)
+    _check_ownership_qr(qr)
+    destino = (request.form.get('email_destino') or '').strip()
+    if not destino:
+        flash('Informe o e-mail de destino.', 'danger')
+        return redirect(url_for('qr.detalhe', id=qr.id))
+    if not qr.valido:
+        flash('Este QR não está mais válido.', 'danger')
+        return redirect(url_for('qr.detalhe', id=qr.id))
+
+    link = url_for('publico.cadastro_paciente', token=qr.token, _external=True)
+    corpo = (f'<p>Olá! Para preencher seu cadastro, acesse o link abaixo no seu celular:</p>'
+             f'<p><a href="{link}">{link}</a></p>'
+             f'<p>O link é válido até {qr.expira_em.strftime("%d/%m/%Y %H:%M")}.</p>')
+    try:
+        enviar_email(destino, 'Cadastro de paciente — Triagem SXF', corpo)
+        log_audit('EMAIL_ENVIADO', entidade='qr_cadastro_token', id_entidade=qr.id,
+                  detalhes={'para': destino})
+        flash(f'Link enviado para {destino}.', 'success')
+    except EmailNaoConfiguradoError:
+        flash('Configure o e-mail em Administração antes de enviar.', 'danger')
+    except SenhaAppInvalidaError as e:
+        flash(str(e), 'danger')
+    except Exception as e:
+        flash(f'Falha ao enviar: {e}', 'danger')
+    return redirect(url_for('qr.detalhe', id=qr.id))
+
+
+@qr_bp.route('/<int:id>/prorrogar', methods=['POST'])
+@login_required
+def prorrogar(id):
+    from controllers.audit import admin_required as _ar
+    if not current_user.is_admin:
+        abort(403)
+    qr = db.get_or_404(QrCadastroToken, id)
+    if qr.revogado_em is not None:
+        flash('Não é possível prorrogar um QR revogado.', 'danger')
+        return redirect(url_for('qr.detalhe', id=qr.id))
+
+    unidade = (request.form.get('unidade') or '').strip()
+    UNIDADES = {'minuto', 'hora', 'dia', 'mes', 'ano', 'sem_prazo'}
+
+    if unidade not in UNIDADES:
+        flash('Unidade de prazo inválida.', 'danger')
+        return redirect(url_for('qr.detalhe', id=qr.id))
+
+    if unidade == 'sem_prazo':
+        qr.sem_expiracao = True
+        detalhe = {'sem_expiracao': True}
+    else:
+        try:
+            qtd = int(request.form.get('quantidade', ''))
+            if qtd <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            flash('Informe uma quantidade válida (número inteiro positivo).', 'danger')
+            return redirect(url_for('qr.detalhe', id=qr.id))
+
+        DELTA = {
+            'minuto': timedelta(minutes=qtd),
+            'hora':   timedelta(hours=qtd),
+            'dia':    timedelta(days=qtd),
+            'mes':    timedelta(days=qtd * 30),
+            'ano':    timedelta(days=qtd * 365),
+        }
+        base = max(datetime.utcnow(), qr.expira_em)
+        qr.expira_em = base + DELTA[unidade]
+        qr.sem_expiracao = False
+        detalhe = {'quantidade': qtd, 'unidade': unidade,
+                   'nova_expiracao': qr.expira_em.isoformat()}
+
+    db.session.commit()
+    log_audit('UPDATE', entidade='qr_cadastro_token', id_entidade=qr.id,
+              detalhes={'prorrogado': detalhe})
+    flash('QR prorrogado com sucesso.', 'success')
+    return redirect(url_for('qr.detalhe', id=qr.id))
 
 
 @qr_bp.route('/<int:id>/revogar', methods=['POST'])
@@ -172,14 +257,18 @@ def cadastro_paciente(token):
                                    token=token, form_data=request.form)
 
         id_responsavel = _resolver_responsavel(request.form)
+        email_paciente = (request.form.get('email') or '').strip() or None
 
         paciente = Paciente(
             nome=nome, cpf=cpf, sexo=sexo, data_nascimento=data_nasc,
+            email=email_paciente,
             id_responsavel=id_responsavel,
             id_usuario=qr.id_usuario_emissor,
             consentimento_dado_em=datetime.utcnow(),
         )
         db.session.add(paciente)
+        db.session.flush()
+        _salvar_anamnese(paciente, request.form)
         db.session.commit()
 
         log_audit('CREATE_VIA_QR', entidade='paciente', id_entidade=paciente.id,

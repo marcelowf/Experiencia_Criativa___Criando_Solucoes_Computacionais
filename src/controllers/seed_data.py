@@ -130,10 +130,11 @@ def migrar_schema_auditoria():
     from models.models import db
 
     AUDIT_TABLES = {
-        'usuarios':       {'auditable': True,  'soft': False},
-        'responsaveis':   {'auditable': True,  'soft': True},
-        'pacientes':      {'auditable': True,  'soft': True},   # ja tinha removido_em
-        'avaliacoes':     {'auditable': True,  'soft': True},   # ja tinha removido_em
+        'usuarios':                {'auditable': True,  'soft': False},
+        'responsaveis':            {'auditable': True,  'soft': True},
+        'pacientes':               {'auditable': True,  'soft': True},
+        'dados_socioeconomicos':   {'auditable': True,  'soft': False},
+        'avaliacoes':              {'auditable': True,  'soft': True},
         'sintomas':       {'auditable': True,  'soft': True},
         'versoes_pesos':  {'auditable': True,  'soft': True},
     }
@@ -192,6 +193,18 @@ def migrar_responsavel_string_para_tabela():
                 'CREATE INDEX IF NOT EXISTS ix_pacientes_id_responsavel '
                 'ON pacientes (id_responsavel)'
             ))
+    if 'email' not in cols:
+        with db.engine.begin() as conn:
+            conn.execute(text('ALTER TABLE pacientes ADD COLUMN email VARCHAR(120)'))
+
+    if insp.has_table('qr_cadastro_tokens'):
+        qr_cols = {c['name'] for c in insp.get_columns('qr_cadastro_tokens')}
+        if 'sem_expiracao' not in qr_cols:
+            with db.engine.begin() as conn:
+                conn.execute(text(
+                    'ALTER TABLE qr_cadastro_tokens '
+                    'ADD COLUMN sem_expiracao BOOLEAN NOT NULL DEFAULT FALSE'
+                ))
 
     pendentes = (Paciente.query
                  .filter(Paciente.id_responsavel.is_(None))
