@@ -28,10 +28,10 @@ docker compose exec web pytest tests/ -v
 
 ### Variáveis de ambiente reconhecidas
 
-| Variável | Default | Descrição |
-|---|---|---|
-| `DATABASE_URL` | `postgresql://sxf_user:sxf_pass@localhost:5432/sxf_db` | Conexão SQLAlchemy |
-| `SECRET_KEY` | `dev-secret-mude-em-producao` | Sessões Flask e CSRF |
+| Variável       | Default                                                | Descrição            |
+| -------------- | ------------------------------------------------------ | -------------------- |
+| `DATABASE_URL` | `postgresql://sxf_user:sxf_pass@localhost:5432/sxf_db` | Conexão SQLAlchemy   |
+| `SECRET_KEY`   | `dev-secret-mude-em-producao`                          | Sessões Flask e CSRF |
 
 docker stop $(docker ps -aq)
 docker rm $(docker ps -aq)

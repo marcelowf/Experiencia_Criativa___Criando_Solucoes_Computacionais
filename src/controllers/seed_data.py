@@ -120,6 +120,23 @@ SINTOMAS_INICIAIS = [
 ]
 
 
+def migrar_drop_legados():
+    """Dropa tabelas com schema legado ANTES do db.create_all() (que as recria limpas).
+
+    App nao vai a prod ate 2027; drops do dev DB sao aceitaveis. Idempotente.
+    """
+    from sqlalchemy import text, inspect
+    from models.models import db
+
+    insp = inspect(db.engine)
+    # ai_configs antiga tinha base_url/modelo (hoje sao env var). Recriar limpa.
+    if insp.has_table('ai_configs'):
+        ai_cols = {c['name'] for c in insp.get_columns('ai_configs')}
+        if 'base_url' in ai_cols:
+            with db.engine.begin() as conn:
+                conn.execute(text('DROP TABLE ai_configs'))
+
+
 def migrar_schema_auditoria():
     """Adiciona colunas de auditoria (criado_em / atualizado_em / criado_por_id /
     atualizado_por_id / removido_em) em DBs antigos. Idempotente.

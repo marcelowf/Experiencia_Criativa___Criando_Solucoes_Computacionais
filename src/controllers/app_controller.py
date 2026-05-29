@@ -26,6 +26,10 @@ def create_app(config_overrides=None):
     app.config['GOOGLE_CLIENT_ID'] = os.environ.get('GOOGLE_CLIENT_ID')
     app.config['GOOGLE_CLIENT_SECRET'] = os.environ.get('GOOGLE_CLIENT_SECRET')
 
+    # Assistente de IA: URL e modelo são decisão de dev (env var), não do admin.
+    app.config['OLLAMA_URL'] = os.environ.get('OLLAMA_URL', 'http://ollama:11434')
+    app.config['OLLAMA_MODEL'] = os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b')
+
     if config_overrides:
         app.config.update(config_overrides)
 
@@ -85,6 +89,17 @@ def create_app(config_overrides=None):
     def inject_google_login():
         return {'google_login_enabled': app.config.get('GOOGLE_LOGIN_ENABLED', False)}
 
+    # Expoe se o assistente de IA esta ativo (controla a injecao do widget no base.html)
+    @app.context_processor
+    def inject_ia_ativa():
+        if not current_user.is_authenticated:
+            return {'ia_ativa': False}
+        try:
+            from controllers.ai_service import ia_configurada
+            return {'ia_ativa': ia_configurada()}
+        except Exception:
+            return {'ia_ativa': False}
+
     @app.errorhandler(403)
     def forbidden(e):
         return render_template('errors/403.html'), 403
@@ -94,14 +109,16 @@ def create_app(config_overrides=None):
         return render_template('errors/404.html'), 404
 
     with app.app_context():
-        db.create_all()
-        from controllers.seed_data import (migrar_schema_auditoria,
+        from controllers.seed_data import (migrar_drop_legados, migrar_schema_auditoria,
                                            migrar_responsavel_string_para_tabela)
+        migrar_drop_legados()          # dropa tabelas legadas ANTES de create_all
+        db.create_all()
         migrar_schema_auditoria()
         _seed_sintomas()
         _seed_admin()
         _seed_user_preferences()
         _seed_versao_pesos_inicial()
+        _seed_ai_config()
         migrar_responsavel_string_para_tabela()
 
     return app
@@ -111,6 +128,14 @@ def _seed_versao_pesos_inicial():
     from controllers.versoes_pesos import criar_versao_inicial
     admin = Usuario.query.filter_by(email='admin@admin.com').first()
     criar_versao_inicial(criado_por_id=admin.id if admin else None)
+
+
+def _seed_ai_config():
+    """Cria a config do assistente (ativa) se ainda nao existir — chat nasce ligado."""
+    from models.models import AiConfig
+    if AiConfig.query.first() is None:
+        db.session.add(AiConfig(temperatura=0.3, max_iteracoes=5, ativo=True))
+        db.session.commit()
 
 
 def _seed_sintomas():

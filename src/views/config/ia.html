@@ -1,13 +1,13 @@
 {% extends "base.html" %}
+{% from 'partials/_icones.html' import robo %}
 {% block title %}<title>Configuração de IA — Triagem SXF</title>{% endblock %}
 {% block content %}
-{% set fd = form_data or {} %}
 
 <div class="page-header">
   <div class="page-header-left">
     <h1 class="page-title">Assistente de IA</h1>
     <p class="page-subtitle">
-      Modelo local via Ollama. O assistente respeita as permissões: admin vê tudo, profissional só os próprios dados.
+      Controle de uso do assistente. O modelo e o servidor são definidos pelos desenvolvedores.
     </p>
   </div>
 </div>
@@ -16,13 +16,11 @@
   <div class="col-lg-7 mb-4">
     <div class="card">
       <div class="card-header">
-        <i class="fa fa-robot"></i> Servidor e modelo
+        {{ robo('', 'margin-right:4px;') }} Comportamento do assistente
         {% if configurado %}
           <span class="badge badge-success float-right">Ativo</span>
-        {% elif config and not config.ativo %}
-          <span class="badge badge-secondary float-right">Desativado</span>
         {% else %}
-          <span class="badge badge-warning float-right">Não configurado</span>
+          <span class="badge badge-secondary float-right">Desativado</span>
         {% endif %}
       </div>
       <div class="card-body">
@@ -30,39 +28,32 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
           <div class="form-group">
-            <label for="base_url">URL do servidor Ollama <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="base_url" name="base_url"
-                   value="{{ fd.get('base_url') or (config.base_url if config else default_base_url) }}"
-                   placeholder="http://ollama:11434" required>
-            <small class="text-muted">No mesmo compose use <code>http://ollama:11434</code>. Em nuvem, aponte para o host do modelo.</small>
+            <label for="temperatura">
+              Criatividade: <strong id="cria-valor">{{ '%.1f'|format(config.temperatura) }}</strong>
+            </label>
+            <input type="range" class="form-control-range" id="temperatura" name="temperatura"
+                   min="0" max="1" step="0.1" value="{{ config.temperatura }}"
+                   oninput="document.getElementById('cria-valor').textContent = parseFloat(this.value).toFixed(1)">
+            <div class="d-flex justify-content-between">
+              <small class="text-muted">Preciso (respostas factuais)</small>
+              <small class="text-muted">Criativo</small>
+            </div>
+            <small class="text-muted">
+              Para consultas a dados clínicos, recomenda-se um valor baixo (mais preciso).
+            </small>
           </div>
 
-          <div class="form-group">
-            <label for="modelo">Modelo <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="modelo" name="modelo"
-                   value="{{ fd.get('modelo') or (config.modelo if config else 'qwen2.5:7b') }}"
-                   placeholder="qwen2.5:7b" required>
-            <small class="text-muted">Recomendado um modelo com suporte a <em>tool calling</em> (qwen2.5, llama3.1+).</small>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6 form-group">
-              <label for="temperatura">Temperatura</label>
-              <input type="number" step="0.1" min="0" max="1" class="form-control"
-                     id="temperatura" name="temperatura"
-                     value="{{ fd.get('temperatura') or (config.temperatura if config else '0.3') }}">
-              <small class="text-muted">0 = preciso, 1 = criativo. Para dados, use baixo.</small>
-            </div>
-            <div class="col-md-6 form-group">
-              <label for="max_iteracoes">Máx. de consultas por resposta</label>
-              <input type="number" min="1" max="10" class="form-control"
-                     id="max_iteracoes" name="max_iteracoes"
-                     value="{{ fd.get('max_iteracoes') or (config.max_iteracoes if config else '5') }}">
-            </div>
+          <div class="form-group mt-4">
+            <label for="max_iteracoes">Máximo de consultas à base por resposta</label>
+            <input type="number" min="1" max="10" class="form-control" style="max-width:120px;"
+                   id="max_iteracoes" name="max_iteracoes" value="{{ config.max_iteracoes }}">
+            <small class="text-muted">
+              Quantas vezes a IA pode consultar o banco para montar uma única resposta.
+            </small>
           </div>
 
           <button type="submit" class="btn btn-primary">
-            <i class="fa fa-save"></i> Salvar
+            <i class="fa fa-save"></i> Salvar{{ ' e reativar' if not configurado else '' }}
           </button>
         </form>
       </div>
@@ -71,27 +62,29 @@
 
   <div class="col-lg-5 mb-4">
     <div class="card">
-      <div class="card-header"><i class="fa fa-cogs"></i> Ações</div>
+      <div class="card-header"><i class="fa fa-cogs"></i> Servidor (definido pelos devs)</div>
       <div class="card-body">
-        {% if config %}
+        <p class="mb-1"><strong>Modelo:</strong> <code>{{ modelo }}</code></p>
+        <p class="mb-3"><strong>Servidor:</strong> <code>{{ base_url }}</code></p>
+        <small class="text-muted d-block mb-3">
+          Alterados por variável de ambiente no deploy (<code>OLLAMA_MODEL</code> / <code>OLLAMA_URL</code>).
+        </small>
+
         <form method="POST" action="{{ url_for('ai_config.testar') }}" class="mb-3">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-outline-primary btn-block">
-            <i class="fa fa-plug"></i> Testar conexão / listar modelos
+            <i class="fa fa-plug"></i> Testar conexão
           </button>
         </form>
         {% if configurado %}
         <form method="POST" action="{{ url_for('ai_config.desativar') }}"
-              data-confirm="O assistente de IA deixará de funcionar para todos."
+              data-confirm="O chat será ocultado para todos os usuários."
               data-confirm-title="Desativar IA?" data-confirm-ok="Desativar">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-outline-danger btn-block">
             <i class="fa fa-ban"></i> Desativar IA
           </button>
         </form>
-        {% endif %}
-        {% else %}
-        <p class="text-muted mb-0">Salve a configuração para habilitar o teste de conexão.</p>
         {% endif %}
 
         <hr>

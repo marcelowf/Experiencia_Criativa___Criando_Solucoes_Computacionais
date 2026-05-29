@@ -1,0 +1,29 @@
+{# Widget flutuante do assistente de IA. Incluído no base.html quando ia_ativa. #}
+{% from 'partials/_icones.html' import robo %}
+<button type="button" class="cw-launcher" id="cw-launcher" title="Assistente IA" aria-label="Abrir assistente IA">
+  {{ robo('', 'width:26px;height:26px;') }}
+</button>
+
+<div class="cw-window" id="cw-window" role="dialog" aria-label="Assistente IA">
+  <div class="cw-header">
+    {{ robo() }}
+    <span class="cw-title">Assistente IA</span>
+    <button type="button" id="cw-nova" title="Nova conversa"><i class="fa fa-refresh"></i></button>
+    <button type="button" id="cw-fechar" title="Fechar"><i class="fa fa-times"></i></button>
+  </div>
+  <div class="cw-body" id="cw-body"></div>
+  <div class="cw-footer">
+    <textarea id="cw-texto" rows="1" placeholder="Pergunte sobre seus pacientes…"></textarea>
+    <button type="button" class="cw-send" id="cw-send" title="Enviar"><i class="fa fa-paper-plane"></i></button>
+  </div>
+</div>
+
+<script>
+  window.CW_URLS = {
+    historico: "{{ url_for('chat.historico') }}",
+    mensagem: "{{ url_for('chat.mensagem') }}",
+    nova: "{{ url_for('chat.nova') }}"
+  };
+  window.CW_CSRF = "{{ csrf_token() }}";
+</script>
+<script src="{{ url_for('static', filename='js/chat-widget.js') }}"></script>

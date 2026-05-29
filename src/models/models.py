@@ -347,12 +347,14 @@ class EmailConfig(Auditable, db.Model):
 
 
 class AiConfig(Auditable, db.Model):
-    """Configuracao singleton do assistente de IA (Ollama)."""
+    """Configuracao singleton do assistente de IA controlada pelo ADMIN.
+
+    URL do servidor e modelo NAO ficam aqui — sao decisao de dev (variaveis de
+    ambiente OLLAMA_URL / OLLAMA_MODEL). Aqui ficam so os parametros de negocio.
+    """
     __tablename__ = 'ai_configs'
     id = db.Column(db.Integer, primary_key=True)
-    base_url = db.Column(db.String(200), nullable=False, default='http://ollama:11434')
-    modelo = db.Column(db.String(80), nullable=False, default='qwen2.5:7b')
-    temperatura = db.Column(db.Float, nullable=False, default=0.3)
+    temperatura = db.Column(db.Float, nullable=False, default=0.3)   # exibida como "Criatividade"
     max_iteracoes = db.Column(db.Integer, nullable=False, default=5)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 

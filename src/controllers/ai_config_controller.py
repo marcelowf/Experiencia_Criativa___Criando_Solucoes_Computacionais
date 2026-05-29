@@ -1,31 +1,35 @@
-"""Tela de administração para configurar o assistente de IA (Ollama)."""
+"""Tela de administração do assistente de IA.
 
-import os
+URL e modelo são decisão de dev (env var) — aqui o admin só controla criatividade,
+máximo de consultas por resposta e o liga/desliga.
+"""
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import (Blueprint, render_template, request, redirect, url_for,
+                   flash, current_app)
 from flask_login import login_required
 
 from models.models import db, AiConfig
 from controllers.audit import admin_required, log_audit
-from controllers.ai_service import (ia_configurada, listar_modelos,
-                                    IaNaoConfiguradaError, IaIndisponivelError)
+from controllers.ai_service import ia_configurada, listar_modelos, IaIndisponivelError
 
 ai_config_bp = Blueprint('ai_config', __name__, url_prefix='/config/ia')
+
+
+def _get_or_create():
+    c = AiConfig.query.first()
+    if c is None:
+        c = AiConfig(temperatura=0.3, max_iteracoes=5, ativo=True)
+        db.session.add(c)
+        db.session.commit()
+    return c
 
 
 @ai_config_bp.route('/', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def index():
-    config = AiConfig.query.first()
+    config = _get_or_create()
     if request.method == 'POST':
-        base_url = (request.form.get('base_url') or '').strip()
-        modelo = (request.form.get('modelo') or '').strip()
-        if not base_url or not modelo:
-            flash('Informe a URL do servidor e o modelo.', 'danger')
-            return render_template('config/ia.html', config=config,
-                                   configurado=ia_configurada(), form_data=request.form,
-                                   default_base_url=os.environ.get('OLLAMA_URL', 'http://ollama:11434'))
         try:
             temperatura = float((request.form.get('temperatura') or '0.3').replace(',', '.'))
         except ValueError:
@@ -35,25 +39,21 @@ def index():
         except ValueError:
             max_iteracoes = 5
 
-        if config is None:
-            config = AiConfig()
-            db.session.add(config)
-        config.base_url = base_url
-        config.modelo = modelo
         config.temperatura = max(0.0, min(temperatura, 1.0))
         config.max_iteracoes = max(1, min(max_iteracoes, 10))
-        config.ativo = True
+        config.ativo = True  # salvar reativa
         db.session.commit()
         log_audit('UPDATE', entidade='ai_config', id_entidade=config.id, detalhes={
-            'base_url': base_url, 'modelo': modelo,
-            'temperatura': config.temperatura, 'ativo': config.ativo,
+            'temperatura': config.temperatura,
+            'max_iteracoes': config.max_iteracoes, 'ativo': True,
         })
         flash('Configuração da IA salva.', 'success')
         return redirect(url_for('ai_config.index'))
 
     return render_template('config/ia.html', config=config,
-                           configurado=ia_configurada(), form_data=None,
-                           default_base_url=os.environ.get('OLLAMA_URL', 'http://ollama:11434'))
+                           configurado=ia_configurada(),
+                           modelo=current_app.config.get('OLLAMA_MODEL'),
+                           base_url=current_app.config.get('OLLAMA_URL'))
 
 
 @ai_config_bp.route('/testar', methods=['POST'])
@@ -66,8 +66,6 @@ def testar():
             flash('Conexão OK. Modelos disponíveis: ' + ', '.join(modelos), 'success')
         else:
             flash('Conectado, mas nenhum modelo instalado. Rode: ollama pull <modelo>.', 'warning')
-    except IaNaoConfiguradaError as e:
-        flash(str(e), 'danger')
     except IaIndisponivelError as e:
         flash(str(e), 'danger')
     return redirect(url_for('ai_config.index'))
@@ -83,5 +81,5 @@ def desativar():
         db.session.commit()
         log_audit('UPDATE', entidade='ai_config', id_entidade=config.id,
                   detalhes={'ativo': False})
-        flash('Assistente de IA desativado.', 'success')
+        flash('Assistente de IA desativado — o chat foi ocultado para todos.', 'success')
     return redirect(url_for('ai_config.index'))

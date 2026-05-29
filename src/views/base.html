@@ -1,3 +1,4 @@
+{% from 'partials/_icones.html' import robo %}
 <!DOCTYPE html>
 <html lang="pt-br" data-theme="{{ tema_atual|default('claro') }}">
 <head>
@@ -9,6 +10,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+  {% if ia_ativa %}<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-widget.css') }}">{% endif %}
 </head>
 <body>
 <div class="app-wrapper">
@@ -45,10 +47,6 @@
          href="{{ url_for('relatorio.index') }}">
         <i class="fa fa-bar-chart nav-icon"></i> Relatórios
       </a>
-      <a class="sidebar-nav-item {% if request.endpoint and request.endpoint.startswith('chat.') %}active{% endif %}"
-         href="{{ url_for('chat.index') }}">
-        <i class="fa fa-comments nav-icon"></i> Assistente IA
-      </a>
       {% if current_user.is_admin %}
       <a class="sidebar-nav-item {% if request.endpoint == 'relatorio.socioeconomico' %}active{% endif %}"
          href="{{ url_for('relatorio.socioeconomico') }}">
@@ -75,7 +73,7 @@
       </a>
       <a class="sidebar-nav-item {% if request.endpoint and request.endpoint.startswith('ai_config.') %}active{% endif %}"
          href="{{ url_for('ai_config.index') }}">
-        <i class="fa fa-robot nav-icon"></i> IA
+        {{ robo('nav-icon', 'height:16px;') }} IA
       </a>
       {% endif %}
     </nav>
@@ -238,5 +236,6 @@
   })();
 </script>
 {% block scripts %}{% endblock %}
+{% if ia_ativa %}{% include 'partials/_chat_widget.html' %}{% endif %}
 </body>
 </html>

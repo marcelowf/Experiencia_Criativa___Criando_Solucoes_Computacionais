@@ -54,14 +54,16 @@ def db(app, _db_session):
             _db.session.query(model).delete()
         _db.session.commit()
 
-        # Reseed sintomas, admin, prefs e V1 inicial
+        # Reseed sintomas, admin, prefs, V1 inicial e config de IA (ativa)
         from controllers.app_controller import (_seed_sintomas, _seed_admin,
                                                 _seed_user_preferences,
-                                                _seed_versao_pesos_inicial)
+                                                _seed_versao_pesos_inicial,
+                                                _seed_ai_config)
         _seed_sintomas()
         _seed_admin()
         _seed_user_preferences()
         _seed_versao_pesos_inicial()
+        _seed_ai_config()
         yield _db
 
 

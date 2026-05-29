@@ -1,7 +1,12 @@
-"""Assistente de IA — chat com acesso ao banco respeitando permissões."""
+"""Endpoints do widget de chat de IA (bolha flutuante).
 
-from flask import (Blueprint, render_template, request, redirect, url_for,
-                   flash, jsonify, abort)
+O widget usa uma ÚNICA conversa "corrente" por usuário (privada). Respostas em
+streaming via SSE.
+"""
+
+import json
+
+from flask import Blueprint, request, jsonify, Response, stream_with_context
 from flask_login import login_required, current_user
 
 from models.models import db, ChatConversa
@@ -10,74 +15,67 @@ from controllers import ai_service
 chat_bp = Blueprint('chat', __name__, url_prefix='/chat')
 
 
-def _conversa_do_usuario(id):
-    """Carrega conversa garantindo que pertence ao usuário atual (senão 403/404)."""
-    conversa = db.get_or_404(ChatConversa, id)
-    if conversa.id_usuario != current_user.id or conversa.removido_em is not None:
-        abort(403)
-    return conversa
+def _conversa_corrente(criar=True):
+    """A conversa ativa mais recente do usuário (cria uma se não houver)."""
+    c = (ChatConversa.query
+         .filter_by(id_usuario=current_user.id)
+         .filter(ChatConversa.removido_em.is_(None))
+         .order_by(ChatConversa.atualizado_em.desc())
+         .first())
+    if c is None and criar:
+        c = ChatConversa(id_usuario=current_user.id, titulo='Nova conversa')
+        db.session.add(c)
+        db.session.commit()
+    return c
 
 
-def _minhas_conversas():
-    return (ChatConversa.query
-            .filter_by(id_usuario=current_user.id)
-            .filter(ChatConversa.removido_em.is_(None))
-            .order_by(ChatConversa.atualizado_em.desc())
-            .all())
-
-
-@chat_bp.route('/')
+@chat_bp.route('/widget/historico')
 @login_required
-def index():
-    conversas = _minhas_conversas()
-    ativa = conversas[0] if conversas else None
-    return render_template('chat/index.html',
-                           conversas=conversas, conversa=ativa,
-                           ia_ok=ai_service.ia_configurada())
+def historico():
+    """Mensagens da conversa corrente (para popular o widget ao abrir)."""
+    c = _conversa_corrente(criar=False)
+    msgs = []
+    if c:
+        for m in c.mensagens:
+            if m.papel in ('user', 'assistant') and (m.conteudo or '').strip():
+                msgs.append({'papel': m.papel, 'conteudo': m.conteudo})
+    return jsonify({'mensagens': msgs})
 
 
-@chat_bp.route('/<int:id>')
-@login_required
-def conversa(id):
-    conversa = _conversa_do_usuario(id)
-    return render_template('chat/index.html',
-                           conversas=_minhas_conversas(), conversa=conversa,
-                           ia_ok=ai_service.ia_configurada())
-
-
-@chat_bp.route('/nova', methods=['POST'])
+@chat_bp.route('/widget/nova', methods=['POST'])
 @login_required
 def nova():
-    c = ChatConversa(id_usuario=current_user.id, titulo='Nova conversa')
-    db.session.add(c)
-    db.session.commit()
-    return redirect(url_for('chat.conversa', id=c.id))
+    """Encerra a conversa corrente (soft delete) — a próxima mensagem cria outra."""
+    from datetime import datetime
+    c = _conversa_corrente(criar=False)
+    if c:
+        c.removido_em = datetime.utcnow()
+        db.session.commit()
+    return jsonify({'ok': True})
 
 
-@chat_bp.route('/<int:id>/mensagem', methods=['POST'])
+@chat_bp.route('/widget/mensagem', methods=['POST'])
 @login_required
-def mensagem(id):
-    conversa = _conversa_do_usuario(id)
+def mensagem():
     texto = (request.form.get('texto') or '').strip()
     if not texto:
         return jsonify({'erro': 'Mensagem vazia.'}), 400
-    try:
-        resultado = ai_service.chat(conversa, texto, current_user)
-        return jsonify({'resposta': resultado['resposta'], 'titulo': conversa.titulo})
-    except ai_service.IaNaoConfiguradaError:
-        return jsonify({'erro': 'O assistente de IA não está configurado. '
-                                'Peça a um administrador para ativá-lo.'}), 503
-    except ai_service.IaIndisponivelError:
-        return jsonify({'erro': 'O assistente está indisponível no momento. '
-                                'Tente novamente em instantes.'}), 503
+    if not ai_service.ia_configurada():
+        return jsonify({'erro': 'O assistente de IA está indisponível no momento.'}), 503
 
+    conversa = _conversa_corrente(criar=True)
+    # capturamos o usuário concreto: o generator roda fora do proxy de request
+    usuario = current_user._get_current_object()
 
-@chat_bp.route('/<int:id>/remover', methods=['POST'])
-@login_required
-def remover(id):
-    from datetime import datetime
-    conversa = _conversa_do_usuario(id)
-    conversa.removido_em = datetime.utcnow()
-    db.session.commit()
-    flash('Conversa removida.', 'success')
-    return redirect(url_for('chat.index'))
+    @stream_with_context
+    def gerar():
+        try:
+            for evento in ai_service.chat_stream(conversa, texto, usuario):
+                yield f'data: {json.dumps(evento, ensure_ascii=False)}\n\n'
+        except ai_service.IaNaoConfiguradaError:
+            yield f'data: {json.dumps({"tipo": "erro", "texto": "Assistente desativado."})}\n\n'
+        except ai_service.IaIndisponivelError:
+            yield f'data: {json.dumps({"tipo": "erro", "texto": "O assistente está indisponível. Tente novamente em instantes."})}\n\n'
+
+    return Response(gerar(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})

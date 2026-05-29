@@ -60,7 +60,6 @@ stages:
                   --image $(imageRepository):latest \
                   .
 
-
   - stage: DT
     displayName: "DT"
     dependsOn: CI
@@ -89,7 +88,6 @@ stages:
                       az webapp restart \
                         --name $(webAppTest) \
                         --resource-group $(resourceGroup)
-
 
   - stage: CD
     displayName: "CD"
