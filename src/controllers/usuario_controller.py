@@ -1,7 +1,8 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash
-from flask_login import login_required, current_user
-from models.models import db, Usuario, UserPreference, SenhaFracaError
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
+
 from controllers.audit import admin_required, log_audit
+from models.models import SenhaFracaError, UserPreference, Usuario, db
 
 usuario_bp = Blueprint('usuario', __name__, url_prefix='/usuarios')
 
@@ -19,9 +20,7 @@ def _eh_ultimo_admin(usuario):
 @admin_required
 def lista():
     usuarios = Usuario.query.order_by(Usuario.nome).all()
-    return render_template('usuarios/lista.html',
-                           usuarios=usuarios,
-                           total_admins=_total_admins())
+    return render_template('usuarios/lista.html', usuarios=usuarios, total_admins=_total_admins())
 
 
 @usuario_bp.route('/novo', methods=['GET', 'POST'])
@@ -32,30 +31,42 @@ def novo():
         email = request.form['email'].strip().lower()
         if Usuario.query.filter_by(email=email).first():
             flash('Este e-mail já está cadastrado.', 'danger')
-            return render_template('usuarios/form.html', usuario=None,
-                                   acao='Cadastrar Usuário', form_data=request.form)
+            return render_template(
+                'usuarios/form.html',
+                usuario=None,
+                acao='Cadastrar Usuário',
+                form_data=request.form,
+            )
         u = Usuario(
             nome=request.form['nome'].strip(),
             email=email,
-            perfil=request.form.get('perfil', 'padrao')
+            perfil=request.form.get('perfil', 'padrao'),
         )
         try:
             u.set_senha(request.form['senha'])
         except SenhaFracaError as e:
             flash(str(e), 'danger')
-            return render_template('usuarios/form.html', usuario=None,
-                                   acao='Cadastrar Usuário', form_data=request.form)
+            return render_template(
+                'usuarios/form.html',
+                usuario=None,
+                acao='Cadastrar Usuário',
+                form_data=request.form,
+            )
         db.session.add(u)
         db.session.flush()
         db.session.add(UserPreference(id_usuario=u.id))
         db.session.commit()
-        log_audit('CREATE', entidade='usuario', id_entidade=u.id, detalhes={
-            'nome': u.nome, 'email': u.email, 'perfil': u.perfil
-        })
+        log_audit(
+            'CREATE',
+            entidade='usuario',
+            id_entidade=u.id,
+            detalhes={'nome': u.nome, 'email': u.email, 'perfil': u.perfil},
+        )
         flash('Usuário cadastrado com sucesso.', 'success')
         return redirect(url_for('usuario.lista'))
-    return render_template('usuarios/form.html', usuario=None, acao='Cadastrar Usuário',
-                           form_data=None)
+    return render_template(
+        'usuarios/form.html', usuario=None, acao='Cadastrar Usuário', form_data=None
+    )
 
 
 @usuario_bp.route('/<int:id>/editar', methods=['GET', 'POST'])
@@ -66,12 +77,18 @@ def editar(id):
     if request.method == 'POST':
         antes = {'nome': usuario.nome, 'perfil': usuario.perfil}
         novo_perfil = request.form.get('perfil', 'padrao')
-        if (usuario.perfil == 'admin' and novo_perfil != 'admin'
-                and _eh_ultimo_admin(usuario)):
-            flash('Não é possível remover o perfil admin do último administrador.', 'danger')
-            return render_template('usuarios/form.html', usuario=usuario,
-                                   acao='Salvar Alterações', form_data=request.form,
-                                   eh_ultimo_admin=_eh_ultimo_admin(usuario))
+        if usuario.perfil == 'admin' and novo_perfil != 'admin' and _eh_ultimo_admin(usuario):
+            flash(
+                'Não é possível remover o perfil admin do último administrador.',
+                'danger',
+            )
+            return render_template(
+                'usuarios/form.html',
+                usuario=usuario,
+                acao='Salvar Alterações',
+                form_data=request.form,
+                eh_ultimo_admin=_eh_ultimo_admin(usuario),
+            )
         usuario.nome = request.form['nome'].strip()
         usuario.perfil = novo_perfil
         nova_senha = request.form.get('senha', '').strip()
@@ -81,19 +98,32 @@ def editar(id):
                 usuario.set_senha(nova_senha)
             except SenhaFracaError as e:
                 flash(str(e), 'danger')
-                return render_template('usuarios/form.html', usuario=usuario,
-                                       acao='Salvar Alterações', form_data=request.form,
-                                       eh_ultimo_admin=_eh_ultimo_admin(usuario))
+                return render_template(
+                    'usuarios/form.html',
+                    usuario=usuario,
+                    acao='Salvar Alterações',
+                    form_data=request.form,
+                    eh_ultimo_admin=_eh_ultimo_admin(usuario),
+                )
         db.session.commit()
-        log_audit('UPDATE', entidade='usuario', id_entidade=usuario.id, detalhes={
-            'antes': antes,
-            'depois': {'nome': usuario.nome, 'perfil': usuario.perfil},
-            'senha_alterada': senha_alterada,
-        })
+        log_audit(
+            'UPDATE',
+            entidade='usuario',
+            id_entidade=usuario.id,
+            detalhes={
+                'antes': antes,
+                'depois': {'nome': usuario.nome, 'perfil': usuario.perfil},
+                'senha_alterada': senha_alterada,
+            },
+        )
         flash('Usuário atualizado.', 'success')
         return redirect(url_for('usuario.lista'))
-    return render_template('usuarios/form.html', usuario=usuario, acao='Salvar Alterações',
-                           eh_ultimo_admin=_eh_ultimo_admin(usuario))
+    return render_template(
+        'usuarios/form.html',
+        usuario=usuario,
+        acao='Salvar Alterações',
+        eh_ultimo_admin=_eh_ultimo_admin(usuario),
+    )
 
 
 @usuario_bp.route('/<int:id>/remover', methods=['POST'])

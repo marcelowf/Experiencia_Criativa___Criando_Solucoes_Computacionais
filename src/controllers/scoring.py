@@ -10,10 +10,11 @@ LIMIAR_FEMININO = 0.55
 def get_sintomas_para_sexo(sexo: str):
     """Retorna lista de Sintoma ativos cujo peso para o sexo informado nao e null."""
     coluna = Sintoma.peso_masculino if sexo == 'M' else Sintoma.peso_feminino
-    return (Sintoma.query
-            .filter(Sintoma.ativo.is_(True), coluna.isnot(None))
-            .order_by(coluna.desc())
-            .all())
+    return (
+        Sintoma.query.filter(Sintoma.ativo.is_(True), coluna.isnot(None))
+        .order_by(coluna.desc())
+        .all()
+    )
 
 
 def calcular_score(sintomas_presentes: dict, sexo: str) -> dict:

@@ -3,8 +3,8 @@
 import json
 from datetime import date
 
-from models.models import db, Avaliacao, VersaoPesos
 from controllers.versoes_pesos import versao_ativa
+from models.models import Avaliacao, VersaoPesos, db
 
 
 def _criar_avaliacao(paciente, id_versao, score=0.3, recomendacao='NÃO ENCAMINHAR'):

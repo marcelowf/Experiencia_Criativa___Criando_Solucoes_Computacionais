@@ -14,17 +14,20 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, '..', 'src')))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, '..')))
 
 from controllers.app_controller import create_app
-from models.models import db as _db, Usuario, UserPreference, Paciente, Sintoma, Responsavel
+from models.models import Paciente, UserPreference, Usuario
+from models.models import db as _db
 
 
 @pytest.fixture(scope='session')
 def app():
-    app = create_app(config_overrides={
-        'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
-        'WTF_CSRF_ENABLED': False,
-        'BABEL_DEFAULT_LOCALE': 'pt_BR',
-    })
+    app = create_app(
+        config_overrides={
+            'TESTING': True,
+            'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+            'WTF_CSRF_ENABLED': False,
+            'BABEL_DEFAULT_LOCALE': 'pt_BR',
+        }
+    )
     return app
 
 
@@ -41,24 +44,57 @@ def db(app, _db_session):
     """Limpa o conteudo entre testes mantendo o schema."""
     with app.app_context():
         # Apagar tudo respeitando FKs (em ordem reversa)
-        from models.models import (LogAuditoria, SintomaAvaliacao, Avaliacao,
-                                   SintomaPesoVersao, VersaoPesos,
-                                   UserPreference, Paciente, DadosSocioeconomicos,
-                                   Anamnese, Responsavel, QrCadastroToken,
-                                   EmailConfig, AiConfig, ChatMensagem, ChatConversa,
-                                   Usuario, Sintoma)
-        for model in [LogAuditoria, ChatMensagem, ChatConversa, SintomaAvaliacao, Avaliacao,
-                      SintomaPesoVersao, VersaoPesos,
-                      UserPreference, DadosSocioeconomicos, Anamnese, Paciente,
-                      Responsavel, QrCadastroToken, EmailConfig, AiConfig, Usuario, Sintoma]:
+        from models.models import (
+            AiConfig,
+            Anamnese,
+            Avaliacao,
+            ChatConversa,
+            ChatMensagem,
+            DadosSocioeconomicos,
+            EmailConfig,
+            LogAuditoria,
+            Paciente,
+            QrCadastroToken,
+            Responsavel,
+            Sintoma,
+            SintomaAvaliacao,
+            SintomaPesoVersao,
+            UserPreference,
+            Usuario,
+            VersaoPesos,
+        )
+
+        for model in [
+            LogAuditoria,
+            ChatMensagem,
+            ChatConversa,
+            SintomaAvaliacao,
+            Avaliacao,
+            SintomaPesoVersao,
+            VersaoPesos,
+            UserPreference,
+            DadosSocioeconomicos,
+            Anamnese,
+            Paciente,
+            Responsavel,
+            QrCadastroToken,
+            EmailConfig,
+            AiConfig,
+            Usuario,
+            Sintoma,
+        ]:
             _db.session.query(model).delete()
         _db.session.commit()
 
         # Reseed sintomas, admin, prefs, V1 inicial e config de IA (ativa)
-        from controllers.app_controller import (_seed_sintomas, _seed_admin,
-                                                _seed_user_preferences,
-                                                _seed_versao_pesos_inicial,
-                                                _seed_ai_config)
+        from controllers.app_controller import (
+            _seed_admin,
+            _seed_ai_config,
+            _seed_sintomas,
+            _seed_user_preferences,
+            _seed_versao_pesos_inicial,
+        )
+
         _seed_sintomas()
         _seed_admin()
         _seed_user_preferences()
@@ -93,18 +129,33 @@ def paciente_factory(db, admin):
     """Cria um paciente vinculado ao admin (default) ou ao usuario passado."""
     contador = {'n': 0}
 
-    def _criar(nome='Paciente Teste', sexo='M',
-               data_nascimento=date(2015, 1, 1), cpf=None,
-               id_usuario=None, responsavel='Responsavel'):
+    def _criar(
+        nome='Paciente Teste',
+        sexo='M',
+        data_nascimento=date(2015, 1, 1),
+        cpf=None,
+        id_usuario=None,
+        responsavel='Responsavel',
+    ):
         contador['n'] += 1
         if cpf is None:
             # CPF valido gerado deterministicamente
-            cpfs_validos = ['111.444.777-35', '529.982.247-25', '390.533.447-05',
-                            '824.345.288-19', '063.158.510-29']
+            cpfs_validos = [
+                '111.444.777-35',
+                '529.982.247-25',
+                '390.533.447-05',
+                '824.345.288-19',
+                '063.158.510-29',
+            ]
             cpf = cpfs_validos[(contador['n'] - 1) % len(cpfs_validos)]
-        p = Paciente(nome=nome, cpf=cpf, sexo=sexo, data_nascimento=data_nascimento,
-                     responsavel=responsavel,
-                     id_usuario=(id_usuario or admin.id))
+        p = Paciente(
+            nome=nome,
+            cpf=cpf,
+            sexo=sexo,
+            data_nascimento=data_nascimento,
+            responsavel=responsavel,
+            id_usuario=(id_usuario or admin.id),
+        )
         _db.session.add(p)
         _db.session.commit()
         return p

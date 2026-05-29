@@ -4,13 +4,20 @@ URL e modelo são decisão de dev (env var) — aqui o admin só controla criati
 máximo de consultas por resposta e o liga/desliga.
 """
 
-from flask import (Blueprint, render_template, request, redirect, url_for,
-                   flash, current_app)
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import login_required
 
-from models.models import db, AiConfig
+from controllers.ai_service import IaIndisponivelError, ia_configurada, listar_modelos
 from controllers.audit import admin_required, log_audit
-from controllers.ai_service import ia_configurada, listar_modelos, IaIndisponivelError
+from models.models import AiConfig, db
 
 ai_config_bp = Blueprint('ai_config', __name__, url_prefix='/config/ia')
 
@@ -43,17 +50,26 @@ def index():
         config.max_iteracoes = max(1, min(max_iteracoes, 10))
         config.ativo = True  # salvar reativa
         db.session.commit()
-        log_audit('UPDATE', entidade='ai_config', id_entidade=config.id, detalhes={
-            'temperatura': config.temperatura,
-            'max_iteracoes': config.max_iteracoes, 'ativo': True,
-        })
+        log_audit(
+            'UPDATE',
+            entidade='ai_config',
+            id_entidade=config.id,
+            detalhes={
+                'temperatura': config.temperatura,
+                'max_iteracoes': config.max_iteracoes,
+                'ativo': True,
+            },
+        )
         flash('Configuração da IA salva.', 'success')
         return redirect(url_for('ai_config.index'))
 
-    return render_template('config/ia.html', config=config,
-                           configurado=ia_configurada(),
-                           modelo=current_app.config.get('OLLAMA_MODEL'),
-                           base_url=current_app.config.get('OLLAMA_URL'))
+    return render_template(
+        'config/ia.html',
+        config=config,
+        configurado=ia_configurada(),
+        modelo=current_app.config.get('OLLAMA_MODEL'),
+        base_url=current_app.config.get('OLLAMA_URL'),
+    )
 
 
 @ai_config_bp.route('/testar', methods=['POST'])
@@ -65,7 +81,10 @@ def testar():
         if modelos:
             flash('Conexão OK. Modelos disponíveis: ' + ', '.join(modelos), 'success')
         else:
-            flash('Conectado, mas nenhum modelo instalado. Rode: ollama pull <modelo>.', 'warning')
+            flash(
+                'Conectado, mas nenhum modelo instalado. Rode: ollama pull <modelo>.',
+                'warning',
+            )
     except IaIndisponivelError as e:
         flash(str(e), 'danger')
     return redirect(url_for('ai_config.index'))
@@ -79,7 +98,11 @@ def desativar():
     if config and config.ativo:
         config.ativo = False
         db.session.commit()
-        log_audit('UPDATE', entidade='ai_config', id_entidade=config.id,
-                  detalhes={'ativo': False})
+        log_audit(
+            'UPDATE',
+            entidade='ai_config',
+            id_entidade=config.id,
+            detalhes={'ativo': False},
+        )
         flash('Assistente de IA desativado — o chat foi ocultado para todos.', 'success')
     return redirect(url_for('ai_config.index'))

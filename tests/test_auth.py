@@ -4,8 +4,11 @@ from models.models import LogAuditoria
 
 
 def test_login_sucesso_redireciona(client, db):
-    r = client.post('/login', data={'email': 'admin@admin.com', 'senha': 'admin123'},
-                    follow_redirects=False)
+    r = client.post(
+        '/login',
+        data={'email': 'admin@admin.com', 'senha': 'admin123'},
+        follow_redirects=False,
+    )
     assert r.status_code in (302, 303)
     assert '/home' in r.headers.get('Location', '')
 

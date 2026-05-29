@@ -3,13 +3,18 @@
 import json
 from datetime import date
 
-from models.models import db, Avaliacao
 from controllers import ai_tools
+from models.models import Avaliacao, db
 
 
 def _avaliacao(paciente, usuario, score=0.5, rec='ENCAMINHAR'):
-    av = Avaliacao(id_paciente=paciente.id, data=date.today(),
-                   score=score, recomendacao=rec, id_usuario=usuario.id)
+    av = Avaliacao(
+        id_paciente=paciente.id,
+        data=date.today(),
+        score=score,
+        recomendacao=rec,
+        id_usuario=usuario.id,
+    )
     db.session.add(av)
     db.session.commit()
     return av
@@ -17,10 +22,10 @@ def _avaliacao(paciente, usuario, score=0.5, rec='ENCAMINHAR'):
 
 # ---------- scoping: buscar_pacientes ----------
 
+
 def test_buscar_pacientes_padrao_so_ve_os_seus(db, admin, usuario_padrao, paciente_factory):
     paciente_factory(nome='Paciente Do Admin', id_usuario=admin.id)
-    paciente_factory(nome='Paciente Do Padrao', id_usuario=usuario_padrao.id,
-                     cpf='529.982.247-25')
+    paciente_factory(nome='Paciente Do Padrao', id_usuario=usuario_padrao.id, cpf='529.982.247-25')
 
     r = ai_tools._tool_buscar_pacientes(usuario_padrao, {})
     nomes = [p['nome'] for p in r['pacientes']]
@@ -30,8 +35,7 @@ def test_buscar_pacientes_padrao_so_ve_os_seus(db, admin, usuario_padrao, pacien
 
 def test_buscar_pacientes_admin_ve_todos(db, admin, usuario_padrao, paciente_factory):
     paciente_factory(nome='Paciente Do Admin', id_usuario=admin.id)
-    paciente_factory(nome='Paciente Do Padrao', id_usuario=usuario_padrao.id,
-                     cpf='529.982.247-25')
+    paciente_factory(nome='Paciente Do Padrao', id_usuario=usuario_padrao.id, cpf='529.982.247-25')
 
     r = ai_tools._tool_buscar_pacientes(admin, {})
     nomes = [p['nome'] for p in r['pacientes']]
@@ -40,6 +44,7 @@ def test_buscar_pacientes_admin_ve_todos(db, admin, usuario_padrao, paciente_fac
 
 
 # ---------- scoping: detalhes_paciente (ownership) ----------
+
 
 def test_detalhes_paciente_padrao_nao_ve_de_outro(db, admin, usuario_padrao, paciente_factory):
     p = paciente_factory(nome='Sigiloso', id_usuario=admin.id)
@@ -61,6 +66,7 @@ def test_detalhes_paciente_inexistente(db, admin):
 
 # ---------- scoping: estatisticas via montar_query ----------
 
+
 def test_estatisticas_respeita_escopo(db, admin, usuario_padrao, paciente_factory):
     p_admin = paciente_factory(nome='A', id_usuario=admin.id)
     p_padrao = paciente_factory(nome='B', id_usuario=usuario_padrao.id, cpf='529.982.247-25')
@@ -76,6 +82,7 @@ def test_estatisticas_respeita_escopo(db, admin, usuario_padrao, paciente_factor
 
 
 # ---------- admin-only ----------
+
 
 def test_specs_filtra_admin_only(db, admin, usuario_padrao):
     nomes_padrao = [s['function']['name'] for s in ai_tools.specs(usuario_padrao)]
@@ -102,6 +109,7 @@ def test_dispatch_tool_desconhecida(db, admin):
 
 
 # ---------- whitelist (sem dados sensíveis) ----------
+
 
 def test_listar_profissionais_sem_senha_nem_email(db, admin, usuario_padrao):
     r = ai_tools._tool_listar_profissionais(admin, {})

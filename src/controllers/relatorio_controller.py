@@ -1,32 +1,48 @@
-import io
 import base64
+import io
 from datetime import date
 
-from flask import Blueprint, render_template, request, jsonify, send_file
-from flask_login import login_required, current_user
-from weasyprint import HTML
+from flask import Blueprint, jsonify, render_template, request, send_file
+from flask_login import current_user, login_required
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 from sqlalchemy.orm import joinedload
-
+from weasyprint import HTML
 from werkzeug.datastructures import ImmutableMultiDict
 
-from models.models import (Usuario, Paciente, Sintoma, Avaliacao, SintomaAvaliacao,
-                           VersaoPesos, DadosSocioeconomicos,
-                           FAIXAS_RENDA, ESCOLARIDADES, BAIXA_RENDA_FAIXAS)
-from controllers.relatorio_stats import (
-    montar_query, calcular_kpis, dados_por_mes, dados_por_recomendacao,
-    dados_por_sexo, histograma_scores, frequencia_sintomas, por_profissional,
-    montar_tabela, FAIXAS_ETARIAS,
-)
 from controllers.relatorio_charts import gerar_todos
+from controllers.relatorio_stats import (
+    FAIXAS_ETARIAS,
+    calcular_kpis,
+    dados_por_mes,
+    dados_por_recomendacao,
+    dados_por_sexo,
+    frequencia_sintomas,
+    histograma_scores,
+    montar_query,
+    montar_tabela,
+    por_profissional,
+)
+from models.models import (
+    BAIXA_RENDA_FAIXAS,
+    ESCOLARIDADES,
+    FAIXAS_RENDA,
+    Avaliacao,
+    DadosSocioeconomicos,
+    Paciente,
+    Sintoma,
+    SintomaAvaliacao,
+    Usuario,
+    VersaoPesos,
+)
 
 relatorio_bp = Blueprint('relatorio', __name__, url_prefix='/relatorios')
 
 
 # ---------- helpers ----------
+
 
 def _filtros_form():
     """Dados auxiliares para os selects/checkboxes da tela de filtros."""
@@ -34,24 +50,31 @@ def _filtros_form():
     if current_user.is_admin:
         pacientes = Paciente.query.order_by(Paciente.nome).all()
     else:
-        pacientes = Paciente.query.filter_by(id_usuario=current_user.id).order_by(Paciente.nome).all()
+        pacientes = (
+            Paciente.query.filter_by(id_usuario=current_user.id).order_by(Paciente.nome).all()
+        )
     sintomas = Sintoma.query.order_by(Sintoma.label).all()
     versoes = VersaoPesos.query.order_by(VersaoPesos.criado_em.desc()).all()
-    return {'usuarios': usuarios, 'pacientes': pacientes, 'sintomas': sintomas,
-            'versoes': versoes, 'faixas': [f[0] for f in FAIXAS_ETARIAS]}
+    return {
+        'usuarios': usuarios,
+        'pacientes': pacientes,
+        'sintomas': sintomas,
+        'versoes': versoes,
+        'faixas': [f[0] for f in FAIXAS_ETARIAS],
+    }
 
 
 # ---------- rotas ----------
+
 
 @relatorio_bp.route('/')
 @login_required
 def index():
     avaliacoes = montar_query(request.args, current_user).all()
     kpis = calcular_kpis(avaliacoes)
-    return render_template('relatorios/index.html',
-                           avaliacoes=avaliacoes,
-                           kpis=kpis,
-                           **_filtros_form())
+    return render_template(
+        'relatorios/index.html', avaliacoes=avaliacoes, kpis=kpis, **_filtros_form()
+    )
 
 
 def _args_com_versao(base_args, versao_id):
@@ -86,26 +109,30 @@ def comparativo():
             'histograma': histograma_scores(avals),
         }
 
-    return render_template('relatorios/comparativo.html',
-                           versoes=versoes,
-                           versao_a=versao_a_id,
-                           versao_b=versao_b_id,
-                           dados=dados)
+    return render_template(
+        'relatorios/comparativo.html',
+        versoes=versoes,
+        versao_a=versao_a_id,
+        versao_b=versao_b_id,
+        dados=dados,
+    )
 
 
 @relatorio_bp.route('/api/dados')
 @login_required
 def api_dados():
     avaliacoes = montar_query(request.args, current_user).all()
-    return jsonify({
-        'kpis': calcular_kpis(avaliacoes),
-        'por_mes': dados_por_mes(avaliacoes),
-        'recomendacao': dados_por_recomendacao(avaliacoes),
-        'sexo': dados_por_sexo(avaliacoes),
-        'histograma': histograma_scores(avaliacoes),
-        'sintomas': frequencia_sintomas(avaliacoes, top_n=12),
-        'profissional': por_profissional(avaliacoes) if current_user.is_admin else [],
-    })
+    return jsonify(
+        {
+            'kpis': calcular_kpis(avaliacoes),
+            'por_mes': dados_por_mes(avaliacoes),
+            'recomendacao': dados_por_recomendacao(avaliacoes),
+            'sexo': dados_por_sexo(avaliacoes),
+            'histograma': histograma_scores(avaliacoes),
+            'sintomas': frequencia_sintomas(avaliacoes, top_n=12),
+            'profissional': por_profissional(avaliacoes) if current_user.is_admin else [],
+        }
+    )
 
 
 @relatorio_bp.route('/export/pdf')
@@ -118,19 +145,25 @@ def export_pdf():
     charts = gerar_todos(avaliacoes, incluir_profissional=current_user.is_admin)
     charts_b64 = {k: base64.b64encode(v).decode('ascii') for k, v in charts.items()}
 
-    html_str = render_template('relatorios/pdf.html',
-                               kpis=kpis,
-                               tabela=tabela,
-                               charts=charts_b64,
-                               filtros=request.args,
-                               gerado_em=date.today(),
-                               gerado_por=current_user.nome,
-                               is_admin=current_user.is_admin,
-                               anonimizado=anonimizar)
+    html_str = render_template(
+        'relatorios/pdf.html',
+        kpis=kpis,
+        tabela=tabela,
+        charts=charts_b64,
+        filtros=request.args,
+        gerado_em=date.today(),
+        gerado_por=current_user.nome,
+        is_admin=current_user.is_admin,
+        anonimizado=anonimizar,
+    )
     pdf_bytes = HTML(string=html_str, base_url=request.host_url).write_pdf()
-    nome = f"relatorio_triagem_{date.today().isoformat()}.pdf"
-    return send_file(io.BytesIO(pdf_bytes), download_name=nome,
-                     mimetype='application/pdf', as_attachment=True)
+    nome = f'relatorio_triagem_{date.today().isoformat()}.pdf'
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        download_name=nome,
+        mimetype='application/pdf',
+        as_attachment=True,
+    )
 
 
 @relatorio_bp.route('/export/xlsx')
@@ -138,9 +171,11 @@ def export_pdf():
 def export_xlsx():
     anonimizar = request.args.get('anonimizar') in ('1', 'on', 'true')
     # Para a aba "Sintomas" precisamos iterar a.sintomas.sintoma.label sem N+1
-    avaliacoes = (montar_query(request.args, current_user)
-                  .options(joinedload(Avaliacao.sintomas).joinedload(SintomaAvaliacao.sintoma))
-                  .all())
+    avaliacoes = (
+        montar_query(request.args, current_user)
+        .options(joinedload(Avaliacao.sintomas).joinedload(SintomaAvaliacao.sintoma))
+        .all()
+    )
     kpis = calcular_kpis(avaliacoes)
     tabela = montar_tabela(avaliacoes, anonimizar=anonimizar)
     charts = gerar_todos(avaliacoes, incluir_profissional=current_user.is_admin)
@@ -175,7 +210,7 @@ def export_xlsx():
         ('Total de avaliações', kpis['total']),
         ('Encaminhar', kpis['encaminhar']),
         ('Não encaminhar', kpis['nao_encaminhar']),
-        ('% Encaminhamento', f"{kpis['pct_encaminhar']}%"),
+        ('% Encaminhamento', f'{kpis["pct_encaminhar"]}%'),
         ('Score médio', kpis['score_medio']),
         ('Score mediano', kpis['score_mediano']),
     ]:
@@ -198,7 +233,18 @@ def export_xlsx():
 
     # ---- Aba Avaliações ----
     ws2 = wb.create_sheet('Avaliações')
-    headers = ['ID', 'Data', 'Paciente', 'CPF', 'Sexo', 'Idade', 'Faixa', 'Score', 'Recomendação', 'Profissional']
+    headers = [
+        'ID',
+        'Data',
+        'Paciente',
+        'CPF',
+        'Sexo',
+        'Idade',
+        'Faixa',
+        'Score',
+        'Recomendação',
+        'Profissional',
+    ]
     bold = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill('solid', fgColor='2563EB')
     enc_fill = PatternFill('solid', fgColor='FEE2E2')
@@ -212,9 +258,16 @@ def export_xlsx():
 
     for i, row in enumerate(tabela, start=2):
         valores = [
-            row['id'], row['data'].strftime('%d/%m/%Y'), row['paciente'], row['cpf'],
-            row['sexo'], row['idade'], row['faixa'],
-            row['score'], row['recomendacao'], row['profissional'],
+            row['id'],
+            row['data'].strftime('%d/%m/%Y'),
+            row['paciente'],
+            row['cpf'],
+            row['sexo'],
+            row['idade'],
+            row['faixa'],
+            row['score'],
+            row['recomendacao'],
+            row['profissional'],
         ]
         for col, v in enumerate(valores, start=1):
             c = ws2.cell(row=i, column=col, value=v)
@@ -241,6 +294,7 @@ def export_xlsx():
         c.alignment = Alignment(horizontal='center', wrap_text=True)
 
     from controllers.relatorio_stats import _mascarar_nome
+
     for i, a in enumerate(avaliacoes, start=2):
         ws3.cell(row=i, column=1, value=a.id)
         ws3.cell(row=i, column=2, value=a.data.strftime('%d/%m/%Y'))
@@ -255,41 +309,45 @@ def export_xlsx():
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    nome = f"relatorio_triagem_{date.today().isoformat()}.xlsx"
-    return send_file(buf, download_name=nome, as_attachment=True,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    nome = f'relatorio_triagem_{date.today().isoformat()}.xlsx'
+    return send_file(
+        buf,
+        download_name=nome,
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
 
 
 @relatorio_bp.route('/socioeconomico')
 @login_required
 def socioeconomico():
-    from controllers.audit import admin_required
-    from controllers.audit import admin_required as _ar
     if not current_user.is_admin:
         from flask import abort
+
         abort(403)
 
     # Total de pacientes ativos
     total_pacientes = Paciente.query.filter(Paciente.removido_em.is_(None)).count()
 
     # Pacientes com dados preenchidos
-    total_com_dados = (DadosSocioeconomicos.query
-                       .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
-                       .filter(Paciente.removido_em.is_(None))
-                       .count())
+    total_com_dados = (
+        DadosSocioeconomicos.query.join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+        .filter(Paciente.removido_em.is_(None))
+        .count()
+    )
 
     cobertura_pct = round(total_com_dados / total_pacientes * 100, 1) if total_pacientes else 0.0
 
     # Distribuicao por faixa de renda
     from sqlalchemy import func
-    dist_renda_raw = (DadosSocioeconomicos.query
-                      .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
-                      .filter(Paciente.removido_em.is_(None),
-                              DadosSocioeconomicos.renda_faixa.isnot(None))
-                      .with_entities(DadosSocioeconomicos.renda_faixa,
-                                     func.count().label('qtd'))
-                      .group_by(DadosSocioeconomicos.renda_faixa)
-                      .all())
+
+    dist_renda_raw = (
+        DadosSocioeconomicos.query.join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+        .filter(Paciente.removido_em.is_(None), DadosSocioeconomicos.renda_faixa.isnot(None))
+        .with_entities(DadosSocioeconomicos.renda_faixa, func.count().label('qtd'))
+        .group_by(DadosSocioeconomicos.renda_faixa)
+        .all()
+    )
     renda_map = {r.renda_faixa: r.qtd for r in dist_renda_raw}
 
     # Ordenar pelas faixas definidas e montar labels
@@ -300,20 +358,23 @@ def socioeconomico():
 
     # Pacientes de baixa renda (tabela)
     pacientes_baixa_renda = (
-        DadosSocioeconomicos.query
-        .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
-        .filter(Paciente.removido_em.is_(None),
-                DadosSocioeconomicos.renda_faixa.in_(list(BAIXA_RENDA_FAIXAS)))
+        DadosSocioeconomicos.query.join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+        .filter(
+            Paciente.removido_em.is_(None),
+            DadosSocioeconomicos.renda_faixa.in_(list(BAIXA_RENDA_FAIXAS)),
+        )
         .options(joinedload(DadosSocioeconomicos.paciente))
         .order_by(DadosSocioeconomicos.renda_faixa, Paciente.nome)
         .all()
     )
 
-    return render_template('relatorios/socioeconomico.html',
-                           total_pacientes=total_pacientes,
-                           total_com_dados=total_com_dados,
-                           cobertura_pct=cobertura_pct,
-                           dist_renda=dist_renda,
-                           pacientes_baixa_renda=pacientes_baixa_renda,
-                           faixas_renda=FAIXAS_RENDA,
-                           escolaridades=ESCOLARIDADES)
+    return render_template(
+        'relatorios/socioeconomico.html',
+        total_pacientes=total_pacientes,
+        total_com_dados=total_com_dados,
+        cobertura_pct=cobertura_pct,
+        dist_renda=dist_renda,
+        pacientes_baixa_renda=pacientes_baixa_renda,
+        faixas_renda=FAIXAS_RENDA,
+        escolaridades=ESCOLARIDADES,
+    )

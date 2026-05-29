@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from models.models import db, Usuario, Paciente, Responsavel, Sintoma
+from models.models import Paciente, Responsavel, Sintoma
 
 
 def test_responsavel_tem_audit_cols_no_create(app, db):
@@ -44,10 +44,17 @@ def test_criado_por_id_preenchido_via_request(auth_client, app, db, admin):
     with app.app_context():
         admin_id = admin.id
 
-    auth_client.post('/pacientes/novo', data={
-        'nome': 'Audit Paciente', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-    }, follow_redirects=True)
+    auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Audit Paciente',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+        },
+        follow_redirects=True,
+    )
 
     with app.app_context():
         p = Paciente.query.filter_by(nome='Audit Paciente').first()
@@ -65,16 +72,23 @@ def test_atualizado_por_id_preenchido_em_update(auth_client, app, db, admin, pac
 
     # cria 2o admin e loga com ele
     from tests.test_usuarios import _criar_admin_extra
+
     with app.app_context():
         admin2 = _criar_admin_extra()
         admin2_id = admin2.id
 
     client2 = app.test_client()
     client2.post('/login', data={'email': 'admin2@admin.com', 'senha': 'admin1234'})
-    client2.post(f'/pacientes/{pid}/editar', data={
-        'nome': 'Editado', 'cpf': '111.444.777-35', 'sexo': 'M',
-        'data_nascimento': '2015-01-01',
-    }, follow_redirects=True)
+    client2.post(
+        f'/pacientes/{pid}/editar',
+        data={
+            'nome': 'Editado',
+            'cpf': '111.444.777-35',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+        },
+        follow_redirects=True,
+    )
 
     with app.app_context():
         p2 = Paciente.query.get(pid)
@@ -97,6 +111,7 @@ def test_sem_request_context_nao_falha(app, db):
 def test_versao_pesos_renomeada(app, db):
     """VersaoPesos agora tem criado_em/criado_por_id (renomeados de criada_*)."""
     from models.models import VersaoPesos
+
     with app.app_context():
         v = VersaoPesos.query.first()
         assert v is not None

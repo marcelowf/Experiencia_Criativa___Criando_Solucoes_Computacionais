@@ -1,14 +1,18 @@
 """Tela de administracao para configurar o envio de e-mail (Gmail)."""
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_required, current_user
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
-from models.models import db, EmailConfig
 from controllers.audit import admin_required, log_audit
-from controllers.email_service import (cifrar_senha, email_configurado,
-                                       enviar_email, get_config,
-                                       EmailNaoConfiguradoError,
-                                       SenhaAppInvalidaError)
+from controllers.email_service import (
+    EmailNaoConfiguradoError,
+    SenhaAppInvalidaError,
+    cifrar_senha,
+    email_configurado,
+    enviar_email,
+    get_config,
+)
+from models.models import EmailConfig, db
 
 email_config_bp = Blueprint('email_config', __name__, url_prefix='/config/email')
 
@@ -25,16 +29,22 @@ def index():
 
         if not remetente_email:
             flash('Informe o e-mail remetente.', 'danger')
-            return render_template('config/email.html', config=config,
-                                   configurado=email_configurado(),
-                                   form_data=request.form)
+            return render_template(
+                'config/email.html',
+                config=config,
+                configurado=email_configurado(),
+                form_data=request.form,
+            )
 
         if config is None:
             if not senha:
                 flash('Informe a senha de app na primeira configuração.', 'danger')
-                return render_template('config/email.html', config=config,
-                                       configurado=email_configurado(),
-                                       form_data=request.form)
+                return render_template(
+                    'config/email.html',
+                    config=config,
+                    configurado=email_configurado(),
+                    form_data=request.form,
+                )
             config = EmailConfig(
                 remetente_email=remetente_email,
                 remetente_nome=remetente_nome,
@@ -52,17 +62,20 @@ def index():
                 config.senha_app_cifrada = cifrar_senha(senha)
 
         db.session.commit()
-        log_audit('UPDATE', entidade='email_config', id_entidade=config.id, detalhes={
-            'remetente': remetente_email,
-            'senha_alterada': senha_alterada,
-            'ativo': config.ativo,
-        })
+        log_audit(
+            'UPDATE',
+            entidade='email_config',
+            id_entidade=config.id,
+            detalhes={
+                'remetente': remetente_email,
+                'senha_alterada': senha_alterada,
+                'ativo': config.ativo,
+            },
+        )
         flash('Configuração de e-mail salva.', 'success')
         return redirect(url_for('email_config.index'))
 
-    return render_template('config/email.html',
-                           config=config,
-                           configurado=email_configurado())
+    return render_template('config/email.html', config=config, configurado=email_configurado())
 
 
 @email_config_bp.route('/testar', methods=['POST'])
@@ -93,7 +106,11 @@ def desativar():
     if config and config.ativo:
         config.ativo = False
         db.session.commit()
-        log_audit('UPDATE', entidade='email_config', id_entidade=config.id,
-                  detalhes={'ativo': False})
+        log_audit(
+            'UPDATE',
+            entidade='email_config',
+            id_entidade=config.id,
+            detalhes={'ativo': False},
+        )
         flash('Envio de e-mail desativado.', 'success')
     return redirect(url_for('email_config.index'))

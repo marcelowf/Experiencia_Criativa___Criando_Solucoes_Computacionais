@@ -1,9 +1,20 @@
 import re
-from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, jsonify
-from flask_login import login_required, current_user
-from models.models import db, Paciente, Responsavel, DadosSocioeconomicos, Anamnese
-from controllers.audit import log_audit
 from datetime import date
+
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from flask_login import current_user, login_required
+
+from controllers.audit import log_audit
+from models.models import Anamnese, DadosSocioeconomicos, Paciente, Responsavel, db
 
 paciente_bp = Blueprint('paciente', __name__, url_prefix='/pacientes')
 
@@ -29,21 +40,35 @@ def _salvar_anamnese(paciente, form):
 
     Campos prefixados `an_` no form. Se nada foi respondido, não cria/altera.
     """
-    ja_fez   = _bool_sim_nao(form.get('an_ja_fez_exame_dna'))
+    ja_fez = _bool_sim_nao(form.get('an_ja_fez_exame_dna'))
     interesse = _bool_sim_nao(form.get('an_interesse_exame_pcr'))
-    RESULTADOS = {'mutacao_completa', 'pre_mutacao', 'zona_gray',
-                  'mosaicismo', 'negativo', 'nao_sei'}
+    RESULTADOS = {
+        'mutacao_completa',
+        'pre_mutacao',
+        'zona_gray',
+        'mosaicismo',
+        'negativo',
+        'nao_sei',
+    }
     resultado = (form.get('an_resultado_exame') or '').strip() or None
     if resultado not in RESULTADOS:
         resultado = None
-    autismo  = _bool_sim_nao(form.get('an_diagnostico_autismo'))
-    irmaos   = _bool_sim_nao(form.get('an_tem_irmaos'))
+    autismo = _bool_sim_nao(form.get('an_diagnostico_autismo'))
+    irmaos = _bool_sim_nao(form.get('an_tem_irmaos'))
     fam_neuro = _tri(form.get('an_familia_neurodesenvolvimento'))
-    fam_meno  = _tri(form.get('an_familia_menopausa_precoce'))
+    fam_meno = _tri(form.get('an_familia_menopausa_precoce'))
     fam_ataxia = _tri(form.get('an_familia_ataxia_tremores'))
 
-    valores = [ja_fez, interesse, resultado, autismo, irmaos,
-               fam_neuro, fam_meno, fam_ataxia]
+    valores = [
+        ja_fez,
+        interesse,
+        resultado,
+        autismo,
+        irmaos,
+        fam_neuro,
+        fam_meno,
+        fam_ataxia,
+    ]
     if all(v is None for v in valores):
         return
 
@@ -157,7 +182,7 @@ def _normalizar_cpf(raw):
     so_digitos = re.sub(r'\D', '', raw)
     if not _cpf_digitos_validos(so_digitos):
         return None
-    return f"{so_digitos[0:3]}.{so_digitos[3:6]}.{so_digitos[6:9]}-{so_digitos[9:11]}"
+    return f'{so_digitos[0:3]}.{so_digitos[3:6]}.{so_digitos[6:9]}-{so_digitos[9:11]}'
 
 
 @paciente_bp.route('/responsaveis/buscar')
@@ -167,15 +192,15 @@ def buscar_responsaveis():
     if not termo:
         return jsonify([])
     like = f'%{termo}%'
-    rows = (Responsavel.query
-            .filter(db.or_(Responsavel.nome.ilike(like), Responsavel.cpf == termo))
-            .order_by(Responsavel.nome)
-            .limit(10)
-            .all())
-    return jsonify([
-        {'id': r.id, 'nome': r.nome, 'cpf': r.cpf, 'parentesco': r.parentesco}
-        for r in rows
-    ])
+    rows = (
+        Responsavel.query.filter(db.or_(Responsavel.nome.ilike(like), Responsavel.cpf == termo))
+        .order_by(Responsavel.nome)
+        .limit(10)
+        .all()
+    )
+    return jsonify(
+        [{'id': r.id, 'nome': r.nome, 'cpf': r.cpf, 'parentesco': r.parentesco} for r in rows]
+    )
 
 
 @paciente_bp.route('/')
@@ -194,10 +219,11 @@ def lixeira():
     """Apenas admin ve a lixeira."""
     if not current_user.is_admin:
         abort(403)
-    pacientes = (Paciente.query
-                 .filter(Paciente.removido_em.isnot(None))
-                 .order_by(Paciente.removido_em.desc())
-                 .all())
+    pacientes = (
+        Paciente.query.filter(Paciente.removido_em.isnot(None))
+        .order_by(Paciente.removido_em.desc())
+        .all()
+    )
     return render_template('pacientes/lixeira.html', pacientes=pacientes)
 
 
@@ -205,6 +231,7 @@ def lixeira():
 @login_required
 def remover(id):
     from datetime import datetime
+
     paciente = db.get_or_404(Paciente, id)
     _check_ownership(paciente, permitir_removido=True)
     if paciente.removido_em is not None:
@@ -212,8 +239,12 @@ def remover(id):
         return redirect(url_for('paciente.lista'))
     paciente.removido_em = datetime.utcnow()
     db.session.commit()
-    log_audit('DELETE', entidade='paciente', id_entidade=paciente.id,
-              detalhes={'soft': True, 'nome': paciente.nome, 'cpf': paciente.cpf})
+    log_audit(
+        'DELETE',
+        entidade='paciente',
+        id_entidade=paciente.id,
+        detalhes={'soft': True, 'nome': paciente.nome, 'cpf': paciente.cpf},
+    )
     flash(f'Paciente "{paciente.nome}" removido.', 'success')
     return redirect(url_for('paciente.lista'))
 
@@ -229,8 +260,12 @@ def restaurar(id):
         return redirect(url_for('paciente.lixeira'))
     paciente.removido_em = None
     db.session.commit()
-    log_audit('UPDATE', entidade='paciente', id_entidade=paciente.id,
-              detalhes={'restaurado': True})
+    log_audit(
+        'UPDATE',
+        entidade='paciente',
+        id_entidade=paciente.id,
+        detalhes={'restaurado': True},
+    )
     flash(f'Paciente "{paciente.nome}" restaurado.', 'success')
     return redirect(url_for('paciente.lixeira'))
 
@@ -240,25 +275,51 @@ def restaurar(id):
 def novo():
     if request.method == 'POST':
         from datetime import datetime
+
         if not request.form.get('consentimento'):
-            flash('É necessário confirmar o consentimento do paciente/responsável (LGPD).', 'danger')
-            return render_template('pacientes/form.html', paciente=None, form_data=request.form, acao='Cadastrar Paciente')
+            flash(
+                'É necessário confirmar o consentimento do paciente/responsável (LGPD).',
+                'danger',
+            )
+            return render_template(
+                'pacientes/form.html',
+                paciente=None,
+                form_data=request.form,
+                acao='Cadastrar Paciente',
+            )
         nome = request.form['nome'].strip()
         cpf = _normalizar_cpf(request.form.get('cpf'))
         if not cpf:
-            flash('CPF inválido. Verifique os dígitos (algoritmo módulo 11) e o formato (000.000.000-00 ou 11 dígitos).', 'danger')
-            return render_template('pacientes/form.html', paciente=None, form_data=request.form, acao='Cadastrar Paciente')
+            flash(
+                'CPF inválido. Verifique os dígitos (algoritmo módulo 11) e o formato (000.000.000-00 ou 11 dígitos).',
+                'danger',
+            )
+            return render_template(
+                'pacientes/form.html',
+                paciente=None,
+                form_data=request.form,
+                acao='Cadastrar Paciente',
+            )
         if Paciente.query.filter_by(cpf=cpf).first():
             flash('Já existe um paciente com este CPF.', 'danger')
-            return render_template('pacientes/form.html', paciente=None, form_data=request.form, acao='Cadastrar Paciente')
+            return render_template(
+                'pacientes/form.html',
+                paciente=None,
+                form_data=request.form,
+                acao='Cadastrar Paciente',
+            )
         sexo = request.form['sexo']
         data_nasc = date.fromisoformat(request.form['data_nascimento'])
         email_paciente = (request.form.get('email') or '').strip() or None
         id_responsavel = _resolver_responsavel(request.form)
         paciente = Paciente(
-            nome=nome, cpf=cpf, sexo=sexo, data_nascimento=data_nasc,
+            nome=nome,
+            cpf=cpf,
+            sexo=sexo,
+            data_nascimento=data_nasc,
             email=email_paciente,
-            id_responsavel=id_responsavel, id_usuario=current_user.id,
+            id_responsavel=id_responsavel,
+            id_usuario=current_user.id,
             consentimento_dado_em=datetime.utcnow(),
         )
         db.session.add(paciente)
@@ -266,15 +327,24 @@ def novo():
         _salvar_dados_socioeconomicos(paciente, request.form)
         _salvar_anamnese(paciente, request.form)
         db.session.commit()
-        log_audit('CREATE', entidade='paciente', id_entidade=paciente.id, detalhes={
-            'nome': nome, 'cpf': cpf, 'sexo': sexo,
-            'data_nascimento': data_nasc.isoformat(),
-            'email': email_paciente,
-            'id_responsavel': id_responsavel,
-        })
+        log_audit(
+            'CREATE',
+            entidade='paciente',
+            id_entidade=paciente.id,
+            detalhes={
+                'nome': nome,
+                'cpf': cpf,
+                'sexo': sexo,
+                'data_nascimento': data_nasc.isoformat(),
+                'email': email_paciente,
+                'id_responsavel': id_responsavel,
+            },
+        )
         flash(f'Paciente {nome} cadastrado com sucesso.', 'success')
         return redirect(url_for('paciente.lista'))
-    return render_template('pacientes/form.html', paciente=None, form_data=None, acao='Cadastrar Paciente')
+    return render_template(
+        'pacientes/form.html', paciente=None, form_data=None, acao='Cadastrar Paciente'
+    )
 
 
 @paciente_bp.route('/<int:id>/editar', methods=['GET', 'POST'])
@@ -285,15 +355,30 @@ def editar(id):
     if request.method == 'POST':
         cpf = _normalizar_cpf(request.form.get('cpf'))
         if not cpf:
-            flash('CPF inválido. Verifique os dígitos (algoritmo módulo 11) e o formato (000.000.000-00 ou 11 dígitos).', 'danger')
-            return render_template('pacientes/form.html', paciente=paciente, form_data=request.form, acao='Salvar Alterações')
+            flash(
+                'CPF inválido. Verifique os dígitos (algoritmo módulo 11) e o formato (000.000.000-00 ou 11 dígitos).',
+                'danger',
+            )
+            return render_template(
+                'pacientes/form.html',
+                paciente=paciente,
+                form_data=request.form,
+                acao='Salvar Alterações',
+            )
         outro = Paciente.query.filter(Paciente.cpf == cpf, Paciente.id != paciente.id).first()
         if outro:
             flash('Já existe outro paciente com este CPF.', 'danger')
-            return render_template('pacientes/form.html', paciente=paciente, form_data=request.form, acao='Salvar Alterações')
+            return render_template(
+                'pacientes/form.html',
+                paciente=paciente,
+                form_data=request.form,
+                acao='Salvar Alterações',
+            )
 
         antes = {
-            'nome': paciente.nome, 'cpf': paciente.cpf, 'sexo': paciente.sexo,
+            'nome': paciente.nome,
+            'cpf': paciente.cpf,
+            'sexo': paciente.sexo,
             'data_nascimento': paciente.data_nascimento.isoformat(),
             'email': paciente.email,
             'id_responsavel': paciente.id_responsavel,
@@ -308,36 +393,55 @@ def editar(id):
         _salvar_anamnese(paciente, request.form)
         db.session.commit()
         depois = {
-            'nome': paciente.nome, 'cpf': paciente.cpf, 'sexo': paciente.sexo,
+            'nome': paciente.nome,
+            'cpf': paciente.cpf,
+            'sexo': paciente.sexo,
             'data_nascimento': paciente.data_nascimento.isoformat(),
             'email': paciente.email,
             'id_responsavel': paciente.id_responsavel,
         }
-        log_audit('UPDATE', entidade='paciente', id_entidade=paciente.id,
-                  detalhes={'antes': antes, 'depois': depois})
+        log_audit(
+            'UPDATE',
+            entidade='paciente',
+            id_entidade=paciente.id,
+            detalhes={'antes': antes, 'depois': depois},
+        )
         flash('Dados do paciente atualizados.', 'success')
         return redirect(url_for('paciente.detalhe', id=id))
-    return render_template('pacientes/form.html', paciente=paciente, form_data=None, acao='Salvar Alterações')
+    return render_template(
+        'pacientes/form.html',
+        paciente=paciente,
+        form_data=None,
+        acao='Salvar Alterações',
+    )
 
 
 @paciente_bp.route('/<int:id>')
 @login_required
 def detalhe(id):
-    from models.models import Avaliacao
     from controllers.scoring import get_limiar
+    from models.models import Avaliacao
+
     paciente = db.get_or_404(Paciente, id)
     _check_ownership(paciente)
-    avaliacoes = (Avaliacao.query
-                  .filter_by(id_paciente=id)
-                  .filter(Avaliacao.removido_em.is_(None))
-                  .order_by(Avaliacao.data.asc())
-                  .all())
-    serie = [{'data': a.data.strftime('%d/%m/%Y'),
-              'score': round(a.score, 4),
-              'recomendacao': a.recomendacao}
-             for a in avaliacoes]
-    return render_template('pacientes/detalhe.html',
-                           paciente=paciente,
-                           avaliacoes=avaliacoes,
-                           serie=serie,
-                           limiar=get_limiar(paciente.sexo))
+    avaliacoes = (
+        Avaliacao.query.filter_by(id_paciente=id)
+        .filter(Avaliacao.removido_em.is_(None))
+        .order_by(Avaliacao.data.asc())
+        .all()
+    )
+    serie = [
+        {
+            'data': a.data.strftime('%d/%m/%Y'),
+            'score': round(a.score, 4),
+            'recomendacao': a.recomendacao,
+        }
+        for a in avaliacoes
+    ]
+    return render_template(
+        'pacientes/detalhe.html',
+        paciente=paciente,
+        avaliacoes=avaliacoes,
+        serie=serie,
+        limiar=get_limiar(paciente.sexo),
+    )

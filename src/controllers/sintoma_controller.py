@@ -1,9 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash
-from flask_login import login_required, current_user
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
-from models.models import db, Sintoma, VersaoPesos, SintomaPesoVersao
 from controllers.audit import admin_required, log_audit
 from controllers.versoes_pesos import criar_nova_versao, versao_ativa
+from models.models import Sintoma, SintomaPesoVersao, VersaoPesos, db
 
 sintoma_bp = Blueprint('sintoma', __name__, url_prefix='/sintomas')
 
@@ -19,8 +19,10 @@ def _parse_float(value):
 
 
 def _pesos_mudaram(antes, depois):
-    return (antes['peso_masculino'] != depois['peso_masculino']
-            or antes['peso_feminino'] != depois['peso_feminino'])
+    return (
+        antes['peso_masculino'] != depois['peso_masculino']
+        or antes['peso_feminino'] != depois['peso_feminino']
+    )
 
 
 @sintoma_bp.route('/')
@@ -28,8 +30,7 @@ def _pesos_mudaram(antes, depois):
 @admin_required
 def lista():
     sintomas = Sintoma.query.order_by(Sintoma.label).all()
-    return render_template('sintomas/lista.html',
-                           sintomas=sintomas, versao=versao_ativa())
+    return render_template('sintomas/lista.html', sintomas=sintomas, versao=versao_ativa())
 
 
 @sintoma_bp.route('/novo', methods=['GET', 'POST'])
@@ -40,8 +41,12 @@ def novo():
         chave = request.form['chave'].strip()
         if Sintoma.query.filter_by(chave=chave).first():
             flash('Já existe um sintoma com essa chave.', 'danger')
-            return render_template('sintomas/form.html', sintoma=None,
-                                   acao='Novo Sintoma', form_data=request.form)
+            return render_template(
+                'sintomas/form.html',
+                sintoma=None,
+                acao='Novo Sintoma',
+                form_data=request.form,
+            )
         s = Sintoma(
             chave=chave,
             label=request.form['label'].strip(),
@@ -58,12 +63,23 @@ def novo():
             criado_por_id=current_user.id,
             notas=f'Novo sintoma adicionado: {s.label}',
         )
-        log_audit('CREATE', entidade='sintoma', id_entidade=s.id, detalhes={
-            'chave': s.chave, 'label': s.label,
-            'peso_masculino': s.peso_masculino, 'peso_feminino': s.peso_feminino,
-            'ativo': s.ativo, 'nova_versao': nova.nome,
-        })
-        flash(f'Sintoma "{s.label}" cadastrado. Pesos congelados como {nova.nome}.', 'success')
+        log_audit(
+            'CREATE',
+            entidade='sintoma',
+            id_entidade=s.id,
+            detalhes={
+                'chave': s.chave,
+                'label': s.label,
+                'peso_masculino': s.peso_masculino,
+                'peso_feminino': s.peso_feminino,
+                'ativo': s.ativo,
+                'nova_versao': nova.nome,
+            },
+        )
+        flash(
+            f'Sintoma "{s.label}" cadastrado. Pesos congelados como {nova.nome}.',
+            'success',
+        )
         return redirect(url_for('sintoma.lista'))
     return render_template('sintomas/form.html', sintoma=None, acao='Novo Sintoma')
 
@@ -96,21 +112,39 @@ def editar(id):
         if _pesos_mudaram(antes, depois):
             notas = (request.form.get('notas_versao') or '').strip()
             if not notas:
-                flash('Ao alterar pesos é obrigatório informar o motivo (nova versão).', 'danger')
+                flash(
+                    'Ao alterar pesos é obrigatório informar o motivo (nova versão).',
+                    'danger',
+                )
                 db.session.rollback()
-                return render_template('sintomas/form.html', sintoma=s, acao='Editar Sintoma',
-                                       exigir_notas=True)
+                return render_template(
+                    'sintomas/form.html',
+                    sintoma=s,
+                    acao='Editar Sintoma',
+                    exigir_notas=True,
+                )
             db.session.commit()  # aplica mudancas em Sintoma.peso_*
             nova = criar_nova_versao(criado_por_id=current_user.id, notas=notas)
-            log_audit('UPDATE', entidade='sintoma', id_entidade=s.id, detalhes={
-                'antes': antes, 'depois': depois,
-                'nova_versao': nova.nome, 'notas': notas,
-            })
+            log_audit(
+                'UPDATE',
+                entidade='sintoma',
+                id_entidade=s.id,
+                detalhes={
+                    'antes': antes,
+                    'depois': depois,
+                    'nova_versao': nova.nome,
+                    'notas': notas,
+                },
+            )
             flash(f'Sintoma atualizado. Pesos congelados como {nova.nome}.', 'success')
         else:
             db.session.commit()
-            log_audit('UPDATE', entidade='sintoma', id_entidade=s.id,
-                      detalhes={'antes': antes, 'depois': depois})
+            log_audit(
+                'UPDATE',
+                entidade='sintoma',
+                id_entidade=s.id,
+                detalhes={'antes': antes, 'depois': depois},
+            )
             flash('Sintoma atualizado.', 'success')
         return redirect(url_for('sintoma.lista'))
     return render_template('sintomas/form.html', sintoma=s, acao='Editar Sintoma')
@@ -123,8 +157,7 @@ def toggle(id):
     s = db.get_or_404(Sintoma, id)
     s.ativo = not s.ativo
     db.session.commit()
-    log_audit('UPDATE', entidade='sintoma', id_entidade=s.id,
-              detalhes={'ativo': s.ativo})
+    log_audit('UPDATE', entidade='sintoma', id_entidade=s.id, detalhes={'ativo': s.ativo})
     flash(f'Sintoma "{s.label}" {"ativado" if s.ativo else "desativado"}.', 'success')
     return redirect(url_for('sintoma.lista'))
 
@@ -134,9 +167,7 @@ def toggle(id):
 @admin_required
 def versoes():
     """Historico de versoes de pesos."""
-    versoes = (VersaoPesos.query
-               .order_by(VersaoPesos.criado_em.desc())
-               .all())
+    versoes = VersaoPesos.query.order_by(VersaoPesos.criado_em.desc()).all()
     return render_template('sintomas/versoes.html', versoes=versoes)
 
 
@@ -145,9 +176,10 @@ def versoes():
 @admin_required
 def versao_detalhe(id):
     v = db.get_or_404(VersaoPesos, id)
-    pesos = (SintomaPesoVersao.query
-             .filter_by(id_versao=v.id)
-             .join(Sintoma)
-             .order_by(Sintoma.label)
-             .all())
+    pesos = (
+        SintomaPesoVersao.query.filter_by(id_versao=v.id)
+        .join(Sintoma)
+        .order_by(Sintoma.label)
+        .all()
+    )
     return render_template('sintomas/versao_detalhe.html', versao=v, pesos=pesos)

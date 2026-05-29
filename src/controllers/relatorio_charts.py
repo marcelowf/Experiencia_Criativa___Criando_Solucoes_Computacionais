@@ -1,15 +1,20 @@
 """Geração de gráficos server-side (matplotlib) para PDF/Excel."""
 
 import io
+
 import matplotlib
+
 matplotlib.use('Agg')  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 
 from controllers.relatorio_stats import (
-    dados_por_mes, dados_por_recomendacao, dados_por_sexo,
-    histograma_scores, frequencia_sintomas, por_profissional,
+    dados_por_mes,
+    dados_por_recomendacao,
+    dados_por_sexo,
+    frequencia_sintomas,
+    histograma_scores,
+    por_profissional,
 )
-
 
 # Paleta consistente com o Asklepios
 COR_PRIMARY = '#2563EB'
@@ -31,7 +36,15 @@ def grafico_por_mes(avaliacoes):
     dados = dados_por_mes(avaliacoes)
     fig, ax = plt.subplots(figsize=(8, 3.5))
     if not dados:
-        ax.text(0.5, 0.5, 'Sem dados', ha='center', va='center', transform=ax.transAxes, color=COR_MUTED)
+        ax.text(
+            0.5,
+            0.5,
+            'Sem dados',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+            color=COR_MUTED,
+        )
         ax.set_axis_off()
         return _fig_to_png(fig)
     labels = [d['mes'] for d in dados]
@@ -51,11 +64,25 @@ def grafico_recomendacao(avaliacoes):
     d = dados_por_recomendacao(avaliacoes)
     fig, ax = plt.subplots(figsize=(5, 4))
     if sum(d['values']) == 0:
-        ax.text(0.5, 0.5, 'Sem dados', ha='center', va='center', transform=ax.transAxes, color=COR_MUTED)
+        ax.text(
+            0.5,
+            0.5,
+            'Sem dados',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+            color=COR_MUTED,
+        )
         ax.set_axis_off()
         return _fig_to_png(fig)
-    ax.pie(d['values'], labels=d['labels'], colors=[COR_DANGER, COR_SUCCESS],
-           autopct='%1.1f%%', startangle=90, wedgeprops={'width': 0.45})
+    ax.pie(
+        d['values'],
+        labels=d['labels'],
+        colors=[COR_DANGER, COR_SUCCESS],
+        autopct='%1.1f%%',
+        startangle=90,
+        wedgeprops={'width': 0.45},
+    )
     ax.set_title('Distribuição por recomendação')
     fig.tight_layout()
     return _fig_to_png(fig)
@@ -68,13 +95,21 @@ def grafico_sexo(avaliacoes):
     enc = [d['M']['encaminhar'], d['F']['encaminhar']]
     nao = [d['M']['nao_encaminhar'], d['F']['nao_encaminhar']]
     if sum(enc) + sum(nao) == 0:
-        ax.text(0.5, 0.5, 'Sem dados', ha='center', va='center', transform=ax.transAxes, color=COR_MUTED)
+        ax.text(
+            0.5,
+            0.5,
+            'Sem dados',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+            color=COR_MUTED,
+        )
         ax.set_axis_off()
         return _fig_to_png(fig)
     x = range(len(labels))
     w = 0.35
-    ax.bar([i - w/2 for i in x], enc, w, color=COR_DANGER, label='Encaminhar')
-    ax.bar([i + w/2 for i in x], nao, w, color=COR_SUCCESS, label='Não encaminhar')
+    ax.bar([i - w / 2 for i in x], enc, w, color=COR_DANGER, label='Encaminhar')
+    ax.bar([i + w / 2 for i in x], nao, w, color=COR_SUCCESS, label='Não encaminhar')
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
     ax.set_title('Resultados por sexo')
@@ -88,7 +123,15 @@ def grafico_histograma(avaliacoes):
     d = histograma_scores(avaliacoes)
     fig, ax = plt.subplots(figsize=(8, 3.5))
     if not d['values']:
-        ax.text(0.5, 0.5, 'Sem dados', ha='center', va='center', transform=ax.transAxes, color=COR_MUTED)
+        ax.text(
+            0.5,
+            0.5,
+            'Sem dados',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+            color=COR_MUTED,
+        )
         ax.set_axis_off()
         return _fig_to_png(fig)
     ax.bar(d['labels'], d['values'], color=COR_PRIMARY)
@@ -104,7 +147,15 @@ def grafico_sintomas(avaliacoes, top_n=12):
     dados = frequencia_sintomas(avaliacoes, top_n=top_n)
     fig, ax = plt.subplots(figsize=(8, max(3, 0.35 * len(dados) + 1)))
     if not dados:
-        ax.text(0.5, 0.5, 'Sem dados', ha='center', va='center', transform=ax.transAxes, color=COR_MUTED)
+        ax.text(
+            0.5,
+            0.5,
+            'Sem dados',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+            color=COR_MUTED,
+        )
         ax.set_axis_off()
         return _fig_to_png(fig)
     labels = [d[0] for d in reversed(dados)]
@@ -120,7 +171,15 @@ def grafico_profissional(avaliacoes):
     dados = por_profissional(avaliacoes)
     fig, ax = plt.subplots(figsize=(8, max(3, 0.4 * len(dados) + 1)))
     if not dados:
-        ax.text(0.5, 0.5, 'Sem dados', ha='center', va='center', transform=ax.transAxes, color=COR_MUTED)
+        ax.text(
+            0.5,
+            0.5,
+            'Sem dados',
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+            color=COR_MUTED,
+        )
         ax.set_axis_off()
         return _fig_to_png(fig)
     nomes = [d[0] for d in reversed(dados)]

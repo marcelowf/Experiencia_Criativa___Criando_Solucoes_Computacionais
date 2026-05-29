@@ -1,20 +1,23 @@
 import os
+
 from flask import Flask, render_template
 from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
-from models.models import db, Usuario, UserPreference, Sintoma
-from controllers.seed_data import SINTOMAS_INICIAIS
 
+from controllers.seed_data import SINTOMAS_INICIAIS
+from models.models import Sintoma, UserPreference, Usuario, db
 
 migrate = Migrate()
 csrf = CSRFProtect()
 
 
 def create_app(config_overrides=None):
-    app = Flask(__name__,
-                template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'views'),
-                static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static'))
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'views'),
+        static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'static'),
+    )
 
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-mude-em-producao')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
@@ -38,6 +41,7 @@ def create_app(config_overrides=None):
     csrf.init_app(app)
 
     from controllers.oauth import init_oauth
+
     app.config['GOOGLE_LOGIN_ENABLED'] = init_oauth(app)
 
     login_manager = LoginManager()
@@ -50,27 +54,40 @@ def create_app(config_overrides=None):
     def load_user(user_id):
         return db.session.get(Usuario, int(user_id))
 
-    from controllers.auth_controller import auth_bp
-    from controllers.paciente_controller import paciente_bp
-    from controllers.avaliacao_controller import avaliacao_bp
-    from controllers.relatorio_controller import relatorio_bp
-    from controllers.usuario_controller import usuario_bp
-    from controllers.sintoma_controller import sintoma_bp
-    from controllers.logs_controller import logs_bp
-    from controllers.reset_senha_controller import reset_bp
-    from controllers.qr_cadastro_controller import qr_bp, publico_bp
-    from controllers.email_config_controller import email_config_bp
     from controllers.ai_config_controller import ai_config_bp
+    from controllers.auth_controller import auth_bp
+    from controllers.avaliacao_controller import avaliacao_bp
     from controllers.chat_controller import chat_bp
+    from controllers.email_config_controller import email_config_bp
+    from controllers.logs_controller import logs_bp
+    from controllers.paciente_controller import paciente_bp
+    from controllers.qr_cadastro_controller import publico_bp, qr_bp
+    from controllers.relatorio_controller import relatorio_bp
+    from controllers.reset_senha_controller import reset_bp
+    from controllers.sintoma_controller import sintoma_bp
+    from controllers.usuario_controller import usuario_bp
 
-    for bp in [auth_bp, paciente_bp, avaliacao_bp, relatorio_bp,
-               usuario_bp, sintoma_bp, logs_bp, reset_bp,
-               qr_bp, publico_bp, email_config_bp, ai_config_bp, chat_bp]:
+    for bp in [
+        auth_bp,
+        paciente_bp,
+        avaliacao_bp,
+        relatorio_bp,
+        usuario_bp,
+        sintoma_bp,
+        logs_bp,
+        reset_bp,
+        qr_bp,
+        publico_bp,
+        email_config_bp,
+        ai_config_bp,
+        chat_bp,
+    ]:
         app.register_blueprint(bp)
 
     @app.route('/health')
     def health():
         from sqlalchemy import text
+
         try:
             db.session.execute(text('SELECT 1'))
             return {'status': 'ok'}, 200
@@ -96,6 +113,7 @@ def create_app(config_overrides=None):
             return {'ia_ativa': False}
         try:
             from controllers.ai_service import ia_configurada
+
             return {'ia_ativa': ia_configurada()}
         except Exception:
             return {'ia_ativa': False}
@@ -109,9 +127,13 @@ def create_app(config_overrides=None):
         return render_template('errors/404.html'), 404
 
     with app.app_context():
-        from controllers.seed_data import (migrar_drop_legados, migrar_schema_auditoria,
-                                           migrar_responsavel_string_para_tabela)
-        migrar_drop_legados()          # dropa tabelas legadas ANTES de create_all
+        from controllers.seed_data import (
+            migrar_drop_legados,
+            migrar_responsavel_string_para_tabela,
+            migrar_schema_auditoria,
+        )
+
+        migrar_drop_legados()  # dropa tabelas legadas ANTES de create_all
         db.create_all()
         migrar_schema_auditoria()
         _seed_sintomas()
@@ -126,6 +148,7 @@ def create_app(config_overrides=None):
 
 def _seed_versao_pesos_inicial():
     from controllers.versoes_pesos import criar_versao_inicial
+
     admin = Usuario.query.filter_by(email='admin@admin.com').first()
     criar_versao_inicial(criado_por_id=admin.id if admin else None)
 
@@ -133,6 +156,7 @@ def _seed_versao_pesos_inicial():
 def _seed_ai_config():
     """Cria a config do assistente (ativa) se ainda nao existir — chat nasce ligado."""
     from models.models import AiConfig
+
     if AiConfig.query.first() is None:
         db.session.add(AiConfig(temperatura=0.3, max_iteracoes=5, ativo=True))
         db.session.commit()

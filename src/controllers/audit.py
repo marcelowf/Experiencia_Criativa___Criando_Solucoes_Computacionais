@@ -1,8 +1,10 @@
 import json
 from functools import wraps
-from flask import request, abort
+
+from flask import abort, request
 from flask_login import current_user
-from models.models import db, LogAuditoria
+
+from models.models import LogAuditoria, db
 
 
 def log_audit(acao, entidade=None, id_entidade=None, detalhes=None, id_usuario=None):
@@ -35,9 +37,11 @@ def log_audit(acao, entidade=None, id_entidade=None, detalhes=None, id_usuario=N
 
 def admin_required(f):
     """Decorator: bloqueia rotas que so admin pode acessar."""
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_admin:
             abort(403)
         return f(*args, **kwargs)
+
     return wrapper

@@ -34,8 +34,9 @@ def test_normalizar_cpf_rejeita_invalido():
     assert _normalizar_cpf('abc') is None
 
 
-def test_listar_pacientes_filtra_por_usuario(auth_client_padrao, paciente_factory,
-                                             usuario_padrao, admin):
+def test_listar_pacientes_filtra_por_usuario(
+    auth_client_padrao, paciente_factory, usuario_padrao, admin
+):
     paciente_factory(nome='Do Outro', id_usuario=admin.id)
     paciente_factory(nome='Meu Paciente', id_usuario=usuario_padrao.id)
 
@@ -46,21 +47,34 @@ def test_listar_pacientes_filtra_por_usuario(auth_client_padrao, paciente_factor
 
 
 def test_cadastro_paciente_cpf_invalido(auth_client):
-    r = auth_client.post('/pacientes/novo', data={
-        'nome': 'Test', 'cpf': '111.111.111-11', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'responsavel': '',
-        'consentimento': 'on',
-    })
+    r = auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Test',
+            'cpf': '111.111.111-11',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'responsavel': '',
+            'consentimento': 'on',
+        },
+    )
     body = r.data.decode('utf-8')
     assert 'CPF inválido' in body
 
 
 def test_cadastro_paciente_ok(auth_client, app, db):
-    auth_client.post('/pacientes/novo', data={
-        'nome': 'Joao', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'responsavel': 'Mae',
-        'consentimento': 'on',
-    }, follow_redirects=True)
+    auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Joao',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'responsavel': 'Mae',
+            'consentimento': 'on',
+        },
+        follow_redirects=True,
+    )
     with app.app_context():
         p = Paciente.query.filter_by(nome='Joao').first()
         assert p is not None
@@ -70,31 +84,50 @@ def test_cadastro_paciente_ok(auth_client, app, db):
 
 def test_cpf_duplicado_rejeita(auth_client, paciente_factory):
     paciente_factory(nome='Existente', cpf='111.444.777-35')
-    r = auth_client.post('/pacientes/novo', data={
-        'nome': 'Outro', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'responsavel': '',
-        'consentimento': 'on',
-    })
+    r = auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Outro',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'responsavel': '',
+            'consentimento': 'on',
+        },
+    )
     body = r.data.decode('utf-8')
     assert 'Já existe' in body
 
 
 def test_cadastro_sem_consentimento_rejeita(auth_client):
-    r = auth_client.post('/pacientes/novo', data={
-        'nome': 'Sem Consent', 'cpf': '52998224725', 'sexo': 'M',
-        'data_nascimento': '2015-01-01',
-    })
+    r = auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Sem Consent',
+            'cpf': '52998224725',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+        },
+    )
     body = r.data.decode('utf-8')
     assert 'consentimento' in body.lower()
 
 
 # ---- Tabela Responsavel ----
 
+
 def test_paciente_sem_responsavel(auth_client, app, db):
-    auth_client.post('/pacientes/novo', data={
-        'nome': 'Sem Resp', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-    }, follow_redirects=True)
+    auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Sem Resp',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+        },
+        follow_redirects=True,
+    )
     with app.app_context():
         p = Paciente.query.filter_by(nome='Sem Resp').first()
         assert p is not None
@@ -103,13 +136,22 @@ def test_paciente_sem_responsavel(auth_client, app, db):
 
 
 def test_paciente_com_responsavel_novo_cria_registro(auth_client, app, db):
-    auth_client.post('/pacientes/novo', data={
-        'nome': 'Com Resp', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-        'resp_nome': 'Joana Silva', 'resp_cpf': '52998224725',
-        'resp_email': 'joana@example.com', 'resp_telefone': '11999990000',
-        'resp_parentesco': 'mae',
-    }, follow_redirects=True)
+    auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Com Resp',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+            'resp_nome': 'Joana Silva',
+            'resp_cpf': '52998224725',
+            'resp_email': 'joana@example.com',
+            'resp_telefone': '11999990000',
+            'resp_parentesco': 'mae',
+        },
+        follow_redirects=True,
+    )
     with app.app_context():
         p = Paciente.query.filter_by(nome='Com Resp').first()
         assert p is not None and p.id_responsavel is not None
@@ -126,16 +168,30 @@ def test_paciente_reaproveita_responsavel_via_id(auth_client, app, db):
         db.session.commit()
         resp_id = r.id
 
-    auth_client.post('/pacientes/novo', data={
-        'nome': 'Irmao 1', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-        'responsavel_id': str(resp_id),
-    }, follow_redirects=True)
-    auth_client.post('/pacientes/novo', data={
-        'nome': 'Irmao 2', 'cpf': '39053344705', 'sexo': 'F',
-        'data_nascimento': '2017-01-01', 'consentimento': 'on',
-        'responsavel_id': str(resp_id),
-    }, follow_redirects=True)
+    auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Irmao 1',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+            'responsavel_id': str(resp_id),
+        },
+        follow_redirects=True,
+    )
+    auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Irmao 2',
+            'cpf': '39053344705',
+            'sexo': 'F',
+            'data_nascimento': '2017-01-01',
+            'consentimento': 'on',
+            'responsavel_id': str(resp_id),
+        },
+        follow_redirects=True,
+    )
 
     with app.app_context():
         # so existe 1 responsavel (nao duplicou)
@@ -152,11 +208,19 @@ def test_paciente_reaproveita_responsavel_via_cpf(auth_client, app, db):
         db.session.add(Responsavel(nome='Joana', cpf='529.982.247-25'))
         db.session.commit()
 
-    auth_client.post('/pacientes/novo', data={
-        'nome': 'Filho', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-        'resp_nome': 'Joana Reescrita', 'resp_cpf': '52998224725',
-    }, follow_redirects=True)
+    auth_client.post(
+        '/pacientes/novo',
+        data={
+            'nome': 'Filho',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+            'resp_nome': 'Joana Reescrita',
+            'resp_cpf': '52998224725',
+        },
+        follow_redirects=True,
+    )
     with app.app_context():
         assert Responsavel.query.count() == 1
         r = Responsavel.query.first()
@@ -166,11 +230,13 @@ def test_paciente_reaproveita_responsavel_via_cpf(auth_client, app, db):
 
 def test_autocomplete_responsaveis(auth_client, app, db):
     with app.app_context():
-        db.session.add_all([
-            Responsavel(nome='Joana Silva', cpf='529.982.247-25', parentesco='mae'),
-            Responsavel(nome='Maria Souza', parentesco='tia'),
-            Responsavel(nome='Outro Nome'),
-        ])
+        db.session.add_all(
+            [
+                Responsavel(nome='Joana Silva', cpf='529.982.247-25', parentesco='mae'),
+                Responsavel(nome='Maria Souza', parentesco='tia'),
+                Responsavel(nome='Outro Nome'),
+            ]
+        )
         db.session.commit()
 
     r = auth_client.get('/pacientes/responsaveis/buscar?q=joana')

@@ -11,6 +11,7 @@ credenciais não estiverem configuradas, o recurso fica simplesmente desligado
 
 try:
     from authlib.integrations.flask_client import OAuth
+
     oauth = OAuth()
     _AUTHLIB_DISPONIVEL = True
 except ImportError:  # authlib ainda não instalado (ex.: antes do rebuild)

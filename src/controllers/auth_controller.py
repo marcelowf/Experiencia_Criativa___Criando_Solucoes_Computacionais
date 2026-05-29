@@ -1,11 +1,19 @@
 from datetime import datetime, timedelta
 
-from flask import (Blueprint, render_template, redirect, url_for, request,
-                   flash, abort, current_app)
-from flask_login import login_user, logout_user, login_required, current_user
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from flask_login import current_user, login_required, login_user, logout_user
 
-from models.models import db, Usuario, UserPreference, LogAuditoria
 from controllers.audit import log_audit
+from models.models import LogAuditoria, UserPreference, Usuario, db
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -20,11 +28,11 @@ def _conta_bloqueada(email: str) -> bool:
     if not email:
         return False
     janela = datetime.utcnow() - timedelta(minutes=JANELA_BLOQUEIO_MIN)
-    falhas = (LogAuditoria.query
-              .filter(LogAuditoria.acao == 'LOGIN_FALHO',
-                      LogAuditoria.data_hora >= janela,
-                      LogAuditoria.detalhes.like(f'%{email}%'))
-              .count())
+    falhas = LogAuditoria.query.filter(
+        LogAuditoria.acao == 'LOGIN_FALHO',
+        LogAuditoria.data_hora >= janela,
+        LogAuditoria.detalhes.like(f'%{email}%'),
+    ).count()
     return falhas >= MAX_TENTATIVAS_LOGIN
 
 
@@ -36,8 +44,11 @@ def login():
         senha = request.form.get('senha', '')
 
         if _conta_bloqueada(email):
-            flash(f'Conta temporariamente bloqueada por excesso de tentativas. '
-                  f'Tente novamente em {JANELA_BLOQUEIO_MIN} minutos.', 'danger')
+            flash(
+                f'Conta temporariamente bloqueada por excesso de tentativas. '
+                f'Tente novamente em {JANELA_BLOQUEIO_MIN} minutos.',
+                'danger',
+            )
             return render_template('login.html')
 
         usuario = Usuario.query.filter_by(email=email).first()
@@ -52,6 +63,7 @@ def login():
 
 # ---------- Login federado via Google (OAuth/OIDC) ----------
 
+
 def resolver_usuario_google(email: str, email_verificado: bool):
     """Resolve o usuário para login via Google.
 
@@ -65,8 +77,10 @@ def resolver_usuario_google(email: str, email_verificado: bool):
         return None, 'Não foi possível obter um e-mail verificado do Google.'
     usuario = Usuario.query.filter_by(email=email).first()
     if usuario is None:
-        return None, ('Este e-mail do Google não está cadastrado. '
-                      'Peça a um administrador para criar seu acesso.')
+        return None, (
+            'Este e-mail do Google não está cadastrado. '
+            'Peça a um administrador para criar seu acesso.'
+        )
     return usuario, None
 
 
@@ -75,6 +89,7 @@ def login_google():
     if not current_app.config.get('GOOGLE_LOGIN_ENABLED'):
         abort(404)
     from controllers.oauth import oauth
+
     redirect_uri = url_for('auth.callback_google', _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
@@ -84,6 +99,7 @@ def callback_google():
     if not current_app.config.get('GOOGLE_LOGIN_ENABLED'):
         abort(404)
     from controllers.oauth import oauth
+
     try:
         token = oauth.google.authorize_access_token()
     except Exception:
@@ -96,8 +112,11 @@ def callback_google():
 
     usuario, erro = resolver_usuario_google(email, verificado)
     if erro:
-        log_audit('LOGIN_FALHO', id_usuario=None,
-                  detalhes={'email': (email or '').strip().lower(), 'metodo': 'google'})
+        log_audit(
+            'LOGIN_FALHO',
+            id_usuario=None,
+            detalhes={'email': (email or '').strip().lower(), 'metodo': 'google'},
+        )
         flash(erro, 'danger')
         return redirect(url_for('auth.login'))
 
@@ -109,17 +128,18 @@ def callback_google():
 @auth_bp.route('/home')
 @login_required
 def home():
-    from controllers.relatorio_stats import calcular_kpis, dados_por_mes, montar_query
-    from werkzeug.datastructures import MultiDict
     from datetime import date
+
+    from werkzeug.datastructures import MultiDict
+
+    from controllers.relatorio_stats import calcular_kpis, dados_por_mes, montar_query
 
     # Janela: do dia 1 do mes corrente ate hoje
     hoje = date.today()
     inicio_mes = hoje.replace(day=1)
 
     # KPIs do mes
-    args_mes = MultiDict([('data_inicio', inicio_mes.isoformat()),
-                          ('data_fim', hoje.isoformat())])
+    args_mes = MultiDict([('data_inicio', inicio_mes.isoformat()), ('data_fim', hoje.isoformat())])
     avs_mes = montar_query(args_mes, current_user).all()
     kpis_mes = calcular_kpis(avs_mes)
 
@@ -131,14 +151,13 @@ def home():
             seis_meses_atras = seis_meses_atras.replace(year=seis_meses_atras.year - 1, month=12)
         else:
             seis_meses_atras = seis_meses_atras.replace(month=seis_meses_atras.month - 1)
-    args_6m = MultiDict([('data_inicio', seis_meses_atras.isoformat()),
-                         ('data_fim', hoje.isoformat())])
+    args_6m = MultiDict(
+        [('data_inicio', seis_meses_atras.isoformat()), ('data_fim', hoje.isoformat())]
+    )
     avs_6m = montar_query(args_6m, current_user).all()
     serie_6m = dados_por_mes(avs_6m)
 
-    return render_template('home.html',
-                           kpis_mes=kpis_mes,
-                           serie_6m=serie_6m)
+    return render_template('home.html', kpis_mes=kpis_mes, serie_6m=serie_6m)
 
 
 @auth_bp.route('/logoff', methods=['POST'])

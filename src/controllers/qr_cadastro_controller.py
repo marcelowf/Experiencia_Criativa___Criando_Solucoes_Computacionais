@@ -9,17 +9,31 @@ import secrets
 from datetime import datetime, timedelta
 
 import qrcode
-from flask import (Blueprint, render_template, request, redirect, url_for,
-                   flash, abort, send_file)
-from flask_login import login_required, current_user
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
+from flask_login import current_user, login_required
 
-from models.models import db, Paciente, QrCadastroToken
 from controllers.audit import log_audit
-from controllers.paciente_controller import (_normalizar_cpf, _resolver_responsavel,
-                                              _salvar_anamnese)
-from controllers.email_service import (email_configurado, enviar_email,
-                                       EmailNaoConfiguradoError, SenhaAppInvalidaError)
-
+from controllers.email_service import (
+    EmailNaoConfiguradoError,
+    SenhaAppInvalidaError,
+    email_configurado,
+    enviar_email,
+)
+from controllers.paciente_controller import (
+    _normalizar_cpf,
+    _resolver_responsavel,
+    _salvar_anamnese,
+)
+from models.models import Paciente, QrCadastroToken, db
 
 TOKEN_VALIDADE_HORAS = 24
 
@@ -36,11 +50,11 @@ def _check_ownership_qr(qr):
 
 def _pacientes_criados_via(qr):
     """Conta quantos pacientes foram criados via este QR (via LogAuditoria)."""
-    from models.models import LogAuditoria
     import json
-    candidatos = (LogAuditoria.query
-                  .filter_by(acao='CREATE_VIA_QR', entidade='paciente')
-                  .all())
+
+    from models.models import LogAuditoria
+
+    candidatos = LogAuditoria.query.filter_by(acao='CREATE_VIA_QR', entidade='paciente').all()
     n = 0
     for log in candidatos:
         if not log.detalhes:
@@ -76,8 +90,12 @@ def gerar():
     )
     db.session.add(qr)
     db.session.commit()
-    log_audit('CREATE', entidade='qr_cadastro_token', id_entidade=qr.id,
-              detalhes={'tipo': 'basico'})
+    log_audit(
+        'CREATE',
+        entidade='qr_cadastro_token',
+        id_entidade=qr.id,
+        detalhes={'tipo': 'basico'},
+    )
     flash('QR de cadastro gerado. Compartilhe o link/imagem com o paciente.', 'success')
     return redirect(url_for('qr.detalhe', id=qr.id))
 
@@ -88,9 +106,13 @@ def detalhe(id):
     qr = db.get_or_404(QrCadastroToken, id)
     _check_ownership_qr(qr)
     link_publico = url_for('publico.cadastro_paciente', token=qr.token, _external=True)
-    return render_template('qr/detalhe.html', qr=qr, link_publico=link_publico,
-                           pacientes_criados=_pacientes_criados_via(qr),
-                           email_ok=email_configurado())
+    return render_template(
+        'qr/detalhe.html',
+        qr=qr,
+        link_publico=link_publico,
+        pacientes_criados=_pacientes_criados_via(qr),
+        email_ok=email_configurado(),
+    )
 
 
 @qr_bp.route('/<int:id>/imagem.png')
@@ -103,8 +125,7 @@ def imagem(id):
     buf = io.BytesIO()
     img.save(buf, format='PNG')
     buf.seek(0)
-    return send_file(buf, mimetype='image/png',
-                     download_name=f'qr_cadastro_{qr.id}.png')
+    return send_file(buf, mimetype='image/png', download_name=f'qr_cadastro_{qr.id}.png')
 
 
 @qr_bp.route('/<int:id>/enviar-email', methods=['POST'])
@@ -121,13 +142,19 @@ def enviar_email_qr(id):
         return redirect(url_for('qr.detalhe', id=qr.id))
 
     link = url_for('publico.cadastro_paciente', token=qr.token, _external=True)
-    corpo = (f'<p>Olá! Para preencher seu cadastro, acesse o link abaixo no seu celular:</p>'
-             f'<p><a href="{link}">{link}</a></p>'
-             f'<p>O link é válido até {qr.expira_em.strftime("%d/%m/%Y %H:%M")}.</p>')
+    corpo = (
+        f'<p>Olá! Para preencher seu cadastro, acesse o link abaixo no seu celular:</p>'
+        f'<p><a href="{link}">{link}</a></p>'
+        f'<p>O link é válido até {qr.expira_em.strftime("%d/%m/%Y %H:%M")}.</p>'
+    )
     try:
         enviar_email(destino, 'Cadastro de paciente — Triagem SXF', corpo)
-        log_audit('EMAIL_ENVIADO', entidade='qr_cadastro_token', id_entidade=qr.id,
-                  detalhes={'para': destino})
+        log_audit(
+            'EMAIL_ENVIADO',
+            entidade='qr_cadastro_token',
+            id_entidade=qr.id,
+            detalhes={'para': destino},
+        )
         flash(f'Link enviado para {destino}.', 'success')
     except EmailNaoConfiguradoError:
         flash('Configure o e-mail em Administração antes de enviar.', 'danger')
@@ -141,7 +168,6 @@ def enviar_email_qr(id):
 @qr_bp.route('/<int:id>/prorrogar', methods=['POST'])
 @login_required
 def prorrogar(id):
-    from controllers.audit import admin_required as _ar
     if not current_user.is_admin:
         abort(403)
     qr = db.get_or_404(QrCadastroToken, id)
@@ -170,20 +196,27 @@ def prorrogar(id):
 
         DELTA = {
             'minuto': timedelta(minutes=qtd),
-            'hora':   timedelta(hours=qtd),
-            'dia':    timedelta(days=qtd),
-            'mes':    timedelta(days=qtd * 30),
-            'ano':    timedelta(days=qtd * 365),
+            'hora': timedelta(hours=qtd),
+            'dia': timedelta(days=qtd),
+            'mes': timedelta(days=qtd * 30),
+            'ano': timedelta(days=qtd * 365),
         }
         base = max(datetime.utcnow(), qr.expira_em)
         qr.expira_em = base + DELTA[unidade]
         qr.sem_expiracao = False
-        detalhe = {'quantidade': qtd, 'unidade': unidade,
-                   'nova_expiracao': qr.expira_em.isoformat()}
+        detalhe = {
+            'quantidade': qtd,
+            'unidade': unidade,
+            'nova_expiracao': qr.expira_em.isoformat(),
+        }
 
     db.session.commit()
-    log_audit('UPDATE', entidade='qr_cadastro_token', id_entidade=qr.id,
-              detalhes={'prorrogado': detalhe})
+    log_audit(
+        'UPDATE',
+        entidade='qr_cadastro_token',
+        id_entidade=qr.id,
+        detalhes={'prorrogado': detalhe},
+    )
     flash('QR prorrogado com sucesso.', 'success')
     return redirect(url_for('qr.detalhe', id=qr.id))
 
@@ -196,8 +229,12 @@ def revogar(id):
     if qr.revogado_em is None:
         qr.revogado_em = datetime.utcnow()
         db.session.commit()
-        log_audit('UPDATE', entidade='qr_cadastro_token', id_entidade=qr.id,
-                  detalhes={'revogado': True})
+        log_audit(
+            'UPDATE',
+            entidade='qr_cadastro_token',
+            id_entidade=qr.id,
+            detalhes={'revogado': True},
+        )
         flash('QR revogado.', 'success')
     return redirect(url_for('qr.lista'))
 
@@ -219,6 +256,7 @@ def _carregar_qr_valido(token):
 @publico_bp.route('/cadastro/<token>', methods=['GET', 'POST'])
 def cadastro_paciente(token):
     from datetime import date
+
     qr = _carregar_qr_valido(token)
     if qr is None:
         abort(404)
@@ -228,39 +266,51 @@ def cadastro_paciente(token):
     if request.method == 'POST':
         if not request.form.get('consentimento'):
             flash('É necessário confirmar o consentimento (LGPD).', 'danger')
-            return render_template('publico/cadastro_paciente.html',
-                                   token=token, form_data=request.form)
+            return render_template(
+                'publico/cadastro_paciente.html', token=token, form_data=request.form
+            )
         nome = (request.form.get('nome') or '').strip()
         if not nome:
             flash('Informe o nome completo.', 'danger')
-            return render_template('publico/cadastro_paciente.html',
-                                   token=token, form_data=request.form)
+            return render_template(
+                'publico/cadastro_paciente.html', token=token, form_data=request.form
+            )
         cpf = _normalizar_cpf(request.form.get('cpf'))
         if not cpf:
             flash('CPF inválido. Verifique os dígitos.', 'danger')
-            return render_template('publico/cadastro_paciente.html',
-                                   token=token, form_data=request.form)
+            return render_template(
+                'publico/cadastro_paciente.html', token=token, form_data=request.form
+            )
         if Paciente.query.filter_by(cpf=cpf).first():
-            flash('Já existe um cadastro com este CPF. Procure seu profissional.', 'danger')
-            return render_template('publico/cadastro_paciente.html',
-                                   token=token, form_data=request.form)
+            flash(
+                'Já existe um cadastro com este CPF. Procure seu profissional.',
+                'danger',
+            )
+            return render_template(
+                'publico/cadastro_paciente.html', token=token, form_data=request.form
+            )
         sexo = request.form.get('sexo')
         if sexo not in ('M', 'F'):
             flash('Selecione o sexo.', 'danger')
-            return render_template('publico/cadastro_paciente.html',
-                                   token=token, form_data=request.form)
+            return render_template(
+                'publico/cadastro_paciente.html', token=token, form_data=request.form
+            )
         try:
             data_nasc = date.fromisoformat(request.form.get('data_nascimento', ''))
         except ValueError:
             flash('Data de nascimento inválida.', 'danger')
-            return render_template('publico/cadastro_paciente.html',
-                                   token=token, form_data=request.form)
+            return render_template(
+                'publico/cadastro_paciente.html', token=token, form_data=request.form
+            )
 
         id_responsavel = _resolver_responsavel(request.form)
         email_paciente = (request.form.get('email') or '').strip() or None
 
         paciente = Paciente(
-            nome=nome, cpf=cpf, sexo=sexo, data_nascimento=data_nasc,
+            nome=nome,
+            cpf=cpf,
+            sexo=sexo,
+            data_nascimento=data_nasc,
             email=email_paciente,
             id_responsavel=id_responsavel,
             id_usuario=qr.id_usuario_emissor,
@@ -271,14 +321,18 @@ def cadastro_paciente(token):
         _salvar_anamnese(paciente, request.form)
         db.session.commit()
 
-        log_audit('CREATE_VIA_QR', entidade='paciente', id_entidade=paciente.id,
-                  id_usuario=qr.id_usuario_emissor,
-                  detalhes={
-                      'token_id': qr.id,
-                      'ip': request.remote_addr,
-                      'nome': nome,
-                      'cpf': cpf,
-                  })
+        log_audit(
+            'CREATE_VIA_QR',
+            entidade='paciente',
+            id_entidade=paciente.id,
+            id_usuario=qr.id_usuario_emissor,
+            detalhes={
+                'token_id': qr.id,
+                'ip': request.remote_addr,
+                'nome': nome,
+                'cpf': cpf,
+            },
+        )
         return render_template('publico/cadastro_sucesso.html', token=token)
 
     return render_template('publico/cadastro_paciente.html', token=token, form_data=None)

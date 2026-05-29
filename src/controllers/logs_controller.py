@@ -1,8 +1,10 @@
 import json
+
 from flask import Blueprint, render_template, request
 from flask_login import login_required
-from models.models import LogAuditoria, Usuario
+
 from controllers.audit import admin_required
+from models.models import LogAuditoria, Usuario
 
 logs_bp = Blueprint('logs', __name__, url_prefix='/logs')
 
@@ -44,9 +46,11 @@ def index():
         except Exception:
             return d
 
-    return render_template('logs/index.html',
-                           logs=logs,
-                           usuarios=usuarios,
-                           acoes=ACOES,
-                           entidades=ENTIDADES,
-                           parse_detalhes=parse_detalhes)
+    return render_template(
+        'logs/index.html',
+        logs=logs,
+        usuarios=usuarios,
+        acoes=ACOES,
+        entidades=ENTIDADES,
+        parse_detalhes=parse_detalhes,
+    )

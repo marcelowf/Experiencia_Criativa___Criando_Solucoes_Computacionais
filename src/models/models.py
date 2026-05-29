@@ -1,10 +1,11 @@
 import re
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import date, datetime
+
+from flask_login import UserMixin
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event
 from sqlalchemy.orm import declared_attr
+from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
 
@@ -28,11 +29,14 @@ def validar_forca_senha(senha: str) -> None:
 
 # ---------- Mixins de auditoria ----------
 
+
 class Auditable:
     """Adiciona criado_em / atualizado_em / criado_por_id / atualizado_por_id."""
+
     criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    atualizado_em = db.Column(db.DateTime, nullable=False,
-                              default=datetime.utcnow, onupdate=datetime.utcnow)
+    atualizado_em = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     @declared_attr
     def criado_por_id(cls):
@@ -45,6 +49,7 @@ class Auditable:
 
 class SoftDeletable:
     """Adiciona removido_em + propriedade ativo."""
+
     removido_em = db.Column(db.DateTime, nullable=True, index=True)
 
     @property
@@ -53,6 +58,7 @@ class SoftDeletable:
 
 
 # ---------- Modelos ----------
+
 
 class Usuario(UserMixin, Auditable, db.Model):
     __tablename__ = 'usuarios'
@@ -65,13 +71,14 @@ class Usuario(UserMixin, Auditable, db.Model):
     token_reset = db.Column(db.String(80), nullable=True, index=True)
     token_reset_expira_em = db.Column(db.DateTime, nullable=True)
 
-    pacientes = db.relationship('Paciente', backref='usuario', lazy=True,
-                                foreign_keys='Paciente.id_usuario')
-    avaliacoes = db.relationship('Avaliacao', backref='usuario', lazy=True,
-                                 foreign_keys='Avaliacao.id_usuario')
+    pacientes = db.relationship(
+        'Paciente', backref='usuario', lazy=True, foreign_keys='Paciente.id_usuario'
+    )
+    avaliacoes = db.relationship(
+        'Avaliacao', backref='usuario', lazy=True, foreign_keys='Avaliacao.id_usuario'
+    )
     preferencias = db.relationship(
-        'UserPreference', backref='usuario', uselist=False,
-        cascade='all, delete-orphan'
+        'UserPreference', backref='usuario', uselist=False, cascade='all, delete-orphan'
     )
 
     def set_senha(self, senha, validar=True):
@@ -91,7 +98,7 @@ class UserPreference(db.Model):
     __tablename__ = 'user_preferences'
     id = db.Column(db.Integer, primary_key=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), unique=True, nullable=False)
-    tema = db.Column(db.String(20), nullable=False, default='claro')    # 'claro' | 'escuro' | 'auto'
+    tema = db.Column(db.String(20), nullable=False, default='claro')  # 'claro' | 'escuro' | 'auto'
 
 
 class Responsavel(Auditable, SoftDeletable, db.Model):
@@ -115,8 +122,9 @@ class Paciente(Auditable, SoftDeletable, db.Model):
     data_nascimento = db.Column(db.Date, nullable=False)
     email = db.Column(db.String(120), nullable=True)
     responsavel = db.Column(db.String(120))  # legado: nome livre antes de Responsavel
-    id_responsavel = db.Column(db.Integer, db.ForeignKey('responsaveis.id'),
-                               nullable=True, index=True)
+    id_responsavel = db.Column(
+        db.Integer, db.ForeignKey('responsaveis.id'), nullable=True, index=True
+    )
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
     consentimento_dado_em = db.Column(db.DateTime, nullable=True)
 
@@ -125,17 +133,17 @@ class Paciente(Auditable, SoftDeletable, db.Model):
 
 FAIXAS_RENDA = [
     ('sem_renda', 'Sem renda'),
-    ('ate_1sm',   'Até 1 salário mínimo'),
-    ('1_3sm',     '1 a 3 salários mínimos'),
-    ('3_5sm',     '3 a 5 salários mínimos'),
+    ('ate_1sm', 'Até 1 salário mínimo'),
+    ('1_3sm', '1 a 3 salários mínimos'),
+    ('3_5sm', '3 a 5 salários mínimos'),
     ('acima_5sm', 'Acima de 5 salários mínimos'),
 ]
 
 ESCOLARIDADES = [
     ('sem_instrucao', 'Sem instrução'),
-    ('fundamental',   'Ensino Fundamental'),
-    ('medio',         'Ensino Médio'),
-    ('superior',      'Ensino Superior ou mais'),
+    ('fundamental', 'Ensino Fundamental'),
+    ('medio', 'Ensino Médio'),
+    ('superior', 'Ensino Superior ou mais'),
 ]
 
 BAIXA_RENDA_FAIXAS = {'sem_renda', 'ate_1sm'}
@@ -143,17 +151,24 @@ BAIXA_RENDA_FAIXAS = {'sem_renda', 'ate_1sm'}
 
 class DadosSocioeconomicos(Auditable, db.Model):
     """Informacoes socioeconomicas opcionais do paciente (1:1)."""
+
     __tablename__ = 'dados_socioeconomicos'
     id = db.Column(db.Integer, primary_key=True)
-    id_paciente = db.Column(db.Integer, db.ForeignKey('pacientes.id'),
-                            unique=True, nullable=False, index=True)
+    id_paciente = db.Column(
+        db.Integer,
+        db.ForeignKey('pacientes.id'),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
     renda_faixa = db.Column(db.String(20), nullable=True)
     profissao = db.Column(db.String(120), nullable=True)
     escolaridade = db.Column(db.String(20), nullable=True)
     num_dependentes = db.Column(db.Integer, nullable=True)
 
-    paciente = db.relationship('Paciente',
-                               backref=db.backref('dados_socioeconomicos', uselist=False))
+    paciente = db.relationship(
+        'Paciente', backref=db.backref('dados_socioeconomicos', uselist=False)
+    )
 
     @property
     def baixa_renda(self):
@@ -163,11 +178,11 @@ class DadosSocioeconomicos(Auditable, db.Model):
 # Opcoes da anamnese (historia clinica/familiar). Sao CONTEXTO: nao entram no score.
 RESULTADO_EXAME_OPCOES = [
     ('mutacao_completa', 'Mutação Completa (+200 repetições CGG)'),
-    ('pre_mutacao',      'Pré-mutação (55 a 199 repetições)'),
-    ('zona_gray',        'Zona Gray / Intermediária (45 a 54 repetições)'),
-    ('mosaicismo',       'Mosaicismo'),
-    ('negativo',         'Negativo para X Frágil (até 39 repetições)'),
-    ('nao_sei',          'Não sei'),
+    ('pre_mutacao', 'Pré-mutação (55 a 199 repetições)'),
+    ('zona_gray', 'Zona Gray / Intermediária (45 a 54 repetições)'),
+    ('mosaicismo', 'Mosaicismo'),
+    ('negativo', 'Negativo para X Frágil (até 39 repetições)'),
+    ('nao_sei', 'Não sei'),
 ]
 _RESULTADO_EXAME_MAP = dict(RESULTADO_EXAME_OPCOES)
 _TRI_MAP = {'sim': 'Sim', 'nao': 'Não', 'nao_sei': 'Não sei'}
@@ -179,10 +194,16 @@ class Anamnese(Auditable, db.Model):
     Espelha o questionário de intake do cliente (Q1–Q8). Campos booleanos usam
     None = não respondido; campos ternários guardam 'sim'/'nao'/'nao_sei'.
     """
+
     __tablename__ = 'anamnese'
     id = db.Column(db.Integer, primary_key=True)
-    id_paciente = db.Column(db.Integer, db.ForeignKey('pacientes.id'),
-                            unique=True, nullable=False, index=True)
+    id_paciente = db.Column(
+        db.Integer,
+        db.ForeignKey('pacientes.id'),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
 
     # Q1 — já fez exame de DNA (sangue/saliva) para SXF
     ja_fez_exame_dna = db.Column(db.Boolean, nullable=True)
@@ -201,8 +222,7 @@ class Anamnese(Auditable, db.Model):
     # Q8 — antecedentes de ataxia (descoordenação) e tremores (sugestivo de FXTAS / pré-mutação)
     familia_ataxia_tremores = db.Column(db.String(10), nullable=True)
 
-    paciente = db.relationship('Paciente',
-                               backref=db.backref('anamnese', uselist=False))
+    paciente = db.relationship('Paciente', backref=db.backref('anamnese', uselist=False))
 
     @property
     def resultado_exame_label(self):
@@ -213,19 +233,32 @@ class Anamnese(Auditable, db.Model):
         return None if v is None else ('Sim' if v else 'Não')
 
     @property
-    def ja_fez_exame_dna_label(self):   return self._bool_label(self.ja_fez_exame_dna)
+    def ja_fez_exame_dna_label(self):
+        return self._bool_label(self.ja_fez_exame_dna)
+
     @property
-    def interesse_exame_pcr_label(self): return self._bool_label(self.interesse_exame_pcr)
+    def interesse_exame_pcr_label(self):
+        return self._bool_label(self.interesse_exame_pcr)
+
     @property
-    def diagnostico_autismo_label(self): return self._bool_label(self.diagnostico_autismo)
+    def diagnostico_autismo_label(self):
+        return self._bool_label(self.diagnostico_autismo)
+
     @property
-    def tem_irmaos_label(self):          return self._bool_label(self.tem_irmaos)
+    def tem_irmaos_label(self):
+        return self._bool_label(self.tem_irmaos)
+
     @property
-    def familia_neurodesenvolvimento_label(self): return _TRI_MAP.get(self.familia_neurodesenvolvimento)
+    def familia_neurodesenvolvimento_label(self):
+        return _TRI_MAP.get(self.familia_neurodesenvolvimento)
+
     @property
-    def familia_menopausa_precoce_label(self):    return _TRI_MAP.get(self.familia_menopausa_precoce)
+    def familia_menopausa_precoce_label(self):
+        return _TRI_MAP.get(self.familia_menopausa_precoce)
+
     @property
-    def familia_ataxia_tremores_label(self):      return _TRI_MAP.get(self.familia_ataxia_tremores)
+    def familia_ataxia_tremores_label(self):
+        return _TRI_MAP.get(self.familia_ataxia_tremores)
 
     @property
     def sugestivo_pre_mutacao(self):
@@ -239,10 +272,13 @@ class Avaliacao(Auditable, SoftDeletable, db.Model):
     id_paciente = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False, index=True)
     data = db.Column(db.Date, nullable=False, default=date.today, index=True)
     score = db.Column(db.Float, nullable=False)
-    recomendacao = db.Column(db.String(20), nullable=False, index=True)  # 'ENCAMINHAR' | 'NÃO ENCAMINHAR'
+    recomendacao = db.Column(
+        db.String(20), nullable=False, index=True
+    )  # 'ENCAMINHAR' | 'NÃO ENCAMINHAR'
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
-    id_versao_pesos = db.Column(db.Integer, db.ForeignKey('versoes_pesos.id'),
-                                nullable=True, index=True)
+    id_versao_pesos = db.Column(
+        db.Integer, db.ForeignKey('versoes_pesos.id'), nullable=True, index=True
+    )
 
     versao_pesos = db.relationship('VersaoPesos')
 
@@ -257,6 +293,7 @@ class Sintoma(Auditable, SoftDeletable, db.Model):
     denormalizacao dos pesos da versao ATIVA — fonte canonica do historico
     fica em SintomaPesoVersao.
     """
+
     __tablename__ = 'sintomas'
     id = db.Column(db.Integer, primary_key=True)
     chave = db.Column(db.String(60), unique=True, nullable=False)
@@ -276,6 +313,7 @@ class VersaoPesos(Auditable, SoftDeletable, db.Model):
     Toda avaliacao aponta para a versao usada no calculo.
     Apenas UMA versao tem `ativa=True` ao mesmo tempo (versao corrente).
     """
+
     __tablename__ = 'versoes_pesos'
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(10), unique=True, nullable=False)  # 'V1', 'V2', ...
@@ -283,26 +321,24 @@ class VersaoPesos(Auditable, SoftDeletable, db.Model):
     ativa = db.Column(db.Boolean, nullable=False, default=False, index=True)
 
     criado_por = db.relationship('Usuario', foreign_keys='VersaoPesos.criado_por_id')
-    pesos = db.relationship('SintomaPesoVersao', backref='versao',
-                            lazy=True, cascade='all, delete-orphan')
+    pesos = db.relationship(
+        'SintomaPesoVersao', backref='versao', lazy=True, cascade='all, delete-orphan'
+    )
 
 
 class SintomaPesoVersao(db.Model):
     """Peso de um sintoma em uma versao especifica (imutavel apos criacao)."""
+
     __tablename__ = 'sintoma_peso_versao'
     id = db.Column(db.Integer, primary_key=True)
-    id_versao = db.Column(db.Integer, db.ForeignKey('versoes_pesos.id'),
-                          nullable=False, index=True)
-    id_sintoma = db.Column(db.Integer, db.ForeignKey('sintomas.id'),
-                           nullable=False, index=True)
+    id_versao = db.Column(db.Integer, db.ForeignKey('versoes_pesos.id'), nullable=False, index=True)
+    id_sintoma = db.Column(db.Integer, db.ForeignKey('sintomas.id'), nullable=False, index=True)
     peso_masculino = db.Column(db.Float, nullable=True)
     peso_feminino = db.Column(db.Float, nullable=True)
 
     sintoma = db.relationship('Sintoma')
 
-    __table_args__ = (
-        db.UniqueConstraint('id_versao', 'id_sintoma', name='uq_versao_sintoma'),
-    )
+    __table_args__ = (db.UniqueConstraint('id_versao', 'id_sintoma', name='uq_versao_sintoma'),)
 
 
 class SintomaAvaliacao(db.Model):
@@ -317,11 +353,13 @@ class SintomaAvaliacao(db.Model):
 
 class QrCadastroToken(Auditable, SoftDeletable, db.Model):
     """Token publico para um paciente preencher o proprio cadastro via QR Code."""
+
     __tablename__ = 'qr_cadastro_tokens'
     id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    id_usuario_emissor = db.Column(db.Integer, db.ForeignKey('usuarios.id'),
-                                   nullable=False, index=True)
+    id_usuario_emissor = db.Column(
+        db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True
+    )
     tipo = db.Column(db.String(20), nullable=False, default='basico')
     expira_em = db.Column(db.DateTime, nullable=False, index=True)
     sem_expiracao = db.Column(db.Boolean, nullable=False, default=False)
@@ -331,13 +369,16 @@ class QrCadastroToken(Auditable, SoftDeletable, db.Model):
 
     @property
     def valido(self):
-        return (self.revogado_em is None
-                and self.removido_em is None
-                and (self.sem_expiracao or self.expira_em > datetime.utcnow()))
+        return (
+            self.revogado_em is None
+            and self.removido_em is None
+            and (self.sem_expiracao or self.expira_em > datetime.utcnow())
+        )
 
 
 class EmailConfig(Auditable, db.Model):
     """Configuracao singleton de envio de e-mail (Gmail via senha de app)."""
+
     __tablename__ = 'email_configs'
     id = db.Column(db.Integer, primary_key=True)
     remetente_email = db.Column(db.String(120), nullable=False)
@@ -352,15 +393,17 @@ class AiConfig(Auditable, db.Model):
     URL do servidor e modelo NAO ficam aqui — sao decisao de dev (variaveis de
     ambiente OLLAMA_URL / OLLAMA_MODEL). Aqui ficam so os parametros de negocio.
     """
+
     __tablename__ = 'ai_configs'
     id = db.Column(db.Integer, primary_key=True)
-    temperatura = db.Column(db.Float, nullable=False, default=0.3)   # exibida como "Criatividade"
+    temperatura = db.Column(db.Float, nullable=False, default=0.3)  # exibida como "Criatividade"
     max_iteracoes = db.Column(db.Integer, nullable=False, default=5)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
 
 class ChatConversa(Auditable, SoftDeletable, db.Model):
     """Conversa do assistente de IA. Pertence a um usuario (privada)."""
+
     __tablename__ = 'chat_conversas'
     id = db.Column(db.Integer, primary_key=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
@@ -368,17 +411,22 @@ class ChatConversa(Auditable, SoftDeletable, db.Model):
 
     usuario = db.relationship('Usuario', foreign_keys=[id_usuario])
     mensagens = db.relationship(
-        'ChatMensagem', backref='conversa', lazy=True,
-        cascade='all, delete-orphan', order_by='ChatMensagem.criado_em'
+        'ChatMensagem',
+        backref='conversa',
+        lazy=True,
+        cascade='all, delete-orphan',
+        order_by='ChatMensagem.criado_em',
     )
 
 
 class ChatMensagem(db.Model):
     """Mensagem de uma conversa. papel: 'user' | 'assistant' | 'tool'."""
+
     __tablename__ = 'chat_mensagens'
     id = db.Column(db.Integer, primary_key=True)
-    id_conversa = db.Column(db.Integer, db.ForeignKey('chat_conversas.id'),
-                            nullable=False, index=True)
+    id_conversa = db.Column(
+        db.Integer, db.ForeignKey('chat_conversas.id'), nullable=False, index=True
+    )
     papel = db.Column(db.String(12), nullable=False)
     conteudo = db.Column(db.Text, nullable=True)
     tool_nome = db.Column(db.String(60), nullable=True)
@@ -389,10 +437,14 @@ class LogAuditoria(db.Model):
     __tablename__ = 'logs'
     id = db.Column(db.Integer, primary_key=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True, index=True)
-    acao = db.Column(db.String(20), nullable=False, index=True)  # CREATE, UPDATE, DELETE, LOGIN, LOGOUT, LOGIN_FALHO
-    entidade = db.Column(db.String(40), nullable=True, index=True)  # paciente, avaliacao, sintoma, usuario
+    acao = db.Column(
+        db.String(20), nullable=False, index=True
+    )  # CREATE, UPDATE, DELETE, LOGIN, LOGOUT, LOGIN_FALHO
+    entidade = db.Column(
+        db.String(40), nullable=True, index=True
+    )  # paciente, avaliacao, sintoma, usuario
     id_entidade = db.Column(db.Integer, nullable=True)
-    detalhes = db.Column(db.Text, nullable=True)            # JSON serializado
+    detalhes = db.Column(db.Text, nullable=True)  # JSON serializado
     ip = db.Column(db.String(45), nullable=True)
     data_hora = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
@@ -401,9 +453,19 @@ class LogAuditoria(db.Model):
 
 # ---------- Event listeners para auto-popular criado_por/atualizado_por ----------
 
-AUDITABLE_CLASSES = [Usuario, Responsavel, Paciente, DadosSocioeconomicos,
-                     Avaliacao, Sintoma, VersaoPesos,
-                     QrCadastroToken, EmailConfig, AiConfig, ChatConversa]
+AUDITABLE_CLASSES = [
+    Usuario,
+    Responsavel,
+    Paciente,
+    DadosSocioeconomicos,
+    Avaliacao,
+    Sintoma,
+    VersaoPesos,
+    QrCadastroToken,
+    EmailConfig,
+    AiConfig,
+    ChatConversa,
+]
 
 
 def _current_user_id_ou_none():
@@ -411,6 +473,7 @@ def _current_user_id_ou_none():
     try:
         from flask import has_request_context
         from flask_login import current_user
+
         if has_request_context() and getattr(current_user, 'is_authenticated', False):
             return current_user.id
     except Exception:

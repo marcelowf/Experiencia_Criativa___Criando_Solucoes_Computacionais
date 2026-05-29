@@ -6,22 +6,23 @@ streaming via SSE.
 
 import json
 
-from flask import Blueprint, request, jsonify, Response, stream_with_context
-from flask_login import login_required, current_user
+from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask_login import current_user, login_required
 
-from models.models import db, ChatConversa
 from controllers import ai_service
+from models.models import ChatConversa, db
 
 chat_bp = Blueprint('chat', __name__, url_prefix='/chat')
 
 
 def _conversa_corrente(criar=True):
     """A conversa ativa mais recente do usuário (cria uma se não houver)."""
-    c = (ChatConversa.query
-         .filter_by(id_usuario=current_user.id)
-         .filter(ChatConversa.removido_em.is_(None))
-         .order_by(ChatConversa.atualizado_em.desc())
-         .first())
+    c = (
+        ChatConversa.query.filter_by(id_usuario=current_user.id)
+        .filter(ChatConversa.removido_em.is_(None))
+        .order_by(ChatConversa.atualizado_em.desc())
+        .first()
+    )
     if c is None and criar:
         c = ChatConversa(id_usuario=current_user.id, titulo='Nova conversa')
         db.session.add(c)
@@ -47,6 +48,7 @@ def historico():
 def nova():
     """Encerra a conversa corrente (soft delete) — a próxima mensagem cria outra."""
     from datetime import datetime
+
     c = _conversa_corrente(criar=False)
     if c:
         c.removido_em = datetime.utcnow()
@@ -77,5 +79,8 @@ def mensagem():
         except ai_service.IaIndisponivelError:
             yield f'data: {json.dumps({"tipo": "erro", "texto": "O assistente está indisponível. Tente novamente em instantes."})}\n\n'
 
-    return Response(gerar(), mimetype='text/event-stream',
-                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+    return Response(
+        gerar(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )

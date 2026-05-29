@@ -1,7 +1,12 @@
 """Testes do nucleo cientifico de scoring."""
 
-from controllers.scoring import (calcular_score, get_sintomas_para_sexo,
-                                 get_limiar, LIMIAR_MASCULINO, LIMIAR_FEMININO)
+from controllers.scoring import (
+    LIMIAR_FEMININO,
+    LIMIAR_MASCULINO,
+    calcular_score,
+    get_limiar,
+    get_sintomas_para_sexo,
+)
 
 
 def test_sintomas_masculino_inclui_macroorquidismo(db):
@@ -40,7 +45,9 @@ def test_limiar_diferente_por_sexo():
 
 
 def test_score_respeita_apenas_sintomas_ativos(db):
-    from models.models import Sintoma, db as _db
+    from models.models import Sintoma
+    from models.models import db as _db
+
     # Desativar um sintoma e garantir que ele nao entra no score
     s = Sintoma.query.filter_by(chave='agressividade').first()
     s.ativo = False

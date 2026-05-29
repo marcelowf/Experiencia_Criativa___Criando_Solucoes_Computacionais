@@ -36,12 +36,16 @@ def test_editar_sintoma_persiste(auth_client, app, db):
         s = Sintoma.query.filter_by(chave='agressividade').first()
         sid = s.id
         peso_m, peso_f = s.peso_masculino, s.peso_feminino
-    auth_client.post(f'/sintomas/{sid}/editar', data={
-        'label': 'Agressividade Atualizada',
-        'peso_masculino': str(peso_m),
-        'peso_feminino': str(peso_f),
-        'ativo': 'on',
-    }, follow_redirects=True)
+    auth_client.post(
+        f'/sintomas/{sid}/editar',
+        data={
+            'label': 'Agressividade Atualizada',
+            'peso_masculino': str(peso_m),
+            'peso_feminino': str(peso_f),
+            'ativo': 'on',
+        },
+        follow_redirects=True,
+    )
     with app.app_context():
         s = Sintoma.query.filter_by(id=sid).first()
         assert s.label == 'Agressividade Atualizada'

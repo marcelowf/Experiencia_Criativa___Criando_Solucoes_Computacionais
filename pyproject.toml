@@ -1,0 +1,23 @@
+# Configuração de formatação/lint do projeto (usada pelo Ruff via pre-commit).
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Não tocar em libs de terceiros minificadas / estáticos.
+extend-exclude = ["src/static"]
+
+[tool.ruff.lint]
+# Conservador: erros de sintaxe/estilo (E/W), pyflakes (F) e ordenação de imports (I).
+select = ["E", "W", "F", "I"]
+ignore = [
+    "E501",  # comprimento de linha é responsabilidade do formatador
+    "E402",  # imports tardios são idiomáticos aqui (sys.path no conftest, imports em create_app)
+    "E741",  # nomes curtos como 'l' — baixo valor, evita atrito
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Testes redefinem 'db' (import do topo + fixture homônima) e têm variáveis de apoio.
+"tests/*" = ["F811", "F841"]
+
+[tool.ruff.format]
+# Respeita o estilo já predominante no código.
+quote-style = "single"

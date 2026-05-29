@@ -1,6 +1,6 @@
 """Testes do fluxo de avaliacao."""
 
-from models.models import Avaliacao, SintomaAvaliacao, Sintoma
+from models.models import Avaliacao, Sintoma, SintomaAvaliacao
 
 
 def test_formulario_exibe_sintomas(auth_client, paciente_factory):

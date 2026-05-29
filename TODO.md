@@ -12,3 +12,5 @@
 Em caso de dúvidas entre em contato pelo e-mail: contato@institutobk.org.br ou ligue para: 41 3156-0309
 
 a senha do google para o disparo de email é composta de que forma?
+
+telas de Email e IA devem ser revisadas com relação ao que espoem

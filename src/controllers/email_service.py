@@ -76,14 +76,16 @@ def enviar_email(destinatario, assunto, corpo_html, anexos=None):
     senha = decifrar_senha(c.senha_app_cifrada)
 
     msg = EmailMessage()
-    remetente = f'{c.remetente_nome} <{c.remetente_email}>' if c.remetente_nome else c.remetente_email
+    remetente = (
+        f'{c.remetente_nome} <{c.remetente_email}>' if c.remetente_nome else c.remetente_email
+    )
     msg['From'] = remetente
     msg['To'] = destinatario
     msg['Subject'] = assunto
     msg.set_content('Seu cliente de e-mail não suporta HTML.')
     msg.add_alternative(corpo_html, subtype='html')
 
-    for nome, conteudo, mimetype in (anexos or []):
+    for nome, conteudo, mimetype in anexos or []:
         maintype, _, subtype = mimetype.partition('/')
         msg.add_attachment(conteudo, maintype=maintype, subtype=subtype, filename=nome)
 

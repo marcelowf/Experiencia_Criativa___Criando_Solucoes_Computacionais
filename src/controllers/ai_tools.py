@@ -12,18 +12,27 @@ Cada função também faz WHITELIST de campos (nunca devolve senha_hash,
 senha_app_cifrada, token_reset, etc.).
 """
 
-from datetime import date
-
 from werkzeug.datastructures import MultiDict
 
-from models.models import (db, Paciente, Avaliacao, Usuario, LogAuditoria,
-                           DadosSocioeconomicos, FAIXAS_RENDA, BAIXA_RENDA_FAIXAS)
 from controllers.audit import log_audit
-from controllers.relatorio_stats import (montar_query, calcular_kpis,
-                                         frequencia_sintomas, _calc_idade)
-
+from controllers.relatorio_stats import (
+    _calc_idade,
+    calcular_kpis,
+    frequencia_sintomas,
+    montar_query,
+)
+from models.models import (
+    BAIXA_RENDA_FAIXAS,
+    FAIXAS_RENDA,
+    DadosSocioeconomicos,
+    LogAuditoria,
+    Paciente,
+    Usuario,
+    db,
+)
 
 # ---------------- handlers ----------------
+
 
 def _tool_buscar_pacientes(current_user, args):
     termo = (args.get('termo') or '').strip()
@@ -36,8 +45,12 @@ def _tool_buscar_pacientes(current_user, args):
     return {
         'total': len(pacientes),
         'pacientes': [
-            {'id': p.id, 'nome': p.nome, 'sexo': p.sexo,
-             'idade': _calc_idade(p.data_nascimento)}
+            {
+                'id': p.id,
+                'nome': p.nome,
+                'sexo': p.sexo,
+                'idade': _calc_idade(p.data_nascimento),
+            }
             for p in pacientes
         ],
     }
@@ -62,7 +75,10 @@ def _tool_detalhes_paciente(current_user, args):
     if erro:
         return erro
     out = {
-        'id': p.id, 'nome': p.nome, 'cpf': p.cpf, 'sexo': p.sexo,
+        'id': p.id,
+        'nome': p.nome,
+        'cpf': p.cpf,
+        'sexo': p.sexo,
         'idade': _calc_idade(p.data_nascimento),
         'email': p.email or None,
         'responsavel': (p.responsavel_obj.nome if p.responsavel_obj else None),
@@ -95,14 +111,20 @@ def _tool_historico_avaliacoes(current_user, args):
     p, erro = _carregar_paciente_scoped(current_user, args.get('paciente_id'))
     if erro:
         return erro
-    avals = sorted([a for a in p.avaliacoes if a.removido_em is None],
-                   key=lambda a: a.data, reverse=True)
+    avals = sorted(
+        [a for a in p.avaliacoes if a.removido_em is None],
+        key=lambda a: a.data,
+        reverse=True,
+    )
     return {
         'paciente': p.nome,
         'avaliacoes': [
-            {'data': a.data.isoformat(), 'score': round(a.score, 4),
-             'recomendacao': a.recomendacao,
-             'versao': (a.versao_pesos.nome if a.versao_pesos else None)}
+            {
+                'data': a.data.isoformat(),
+                'score': round(a.score, 4),
+                'recomendacao': a.recomendacao,
+                'versao': (a.versao_pesos.nome if a.versao_pesos else None),
+            }
             for a in avals
         ],
     }
@@ -127,17 +149,21 @@ def _tool_estatisticas(current_user, args):
 
 # --- admin-only ---
 
+
 def _tool_resumo_socioeconomico(current_user, args):
     total_pac = Paciente.query.filter(Paciente.removido_em.is_(None)).count()
-    com_dados = (DadosSocioeconomicos.query
-                 .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
-                 .filter(Paciente.removido_em.is_(None)).count())
-    rows = (DadosSocioeconomicos.query
-            .join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
-            .filter(Paciente.removido_em.is_(None),
-                    DadosSocioeconomicos.renda_faixa.isnot(None))
-            .with_entities(DadosSocioeconomicos.renda_faixa, db.func.count())
-            .group_by(DadosSocioeconomicos.renda_faixa).all())
+    com_dados = (
+        DadosSocioeconomicos.query.join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+        .filter(Paciente.removido_em.is_(None))
+        .count()
+    )
+    rows = (
+        DadosSocioeconomicos.query.join(Paciente, DadosSocioeconomicos.id_paciente == Paciente.id)
+        .filter(Paciente.removido_em.is_(None), DadosSocioeconomicos.renda_faixa.isnot(None))
+        .with_entities(DadosSocioeconomicos.renda_faixa, db.func.count())
+        .group_by(DadosSocioeconomicos.renda_faixa)
+        .all()
+    )
     mapa = {faixa: n for faixa, n in rows}
     baixa = sum(mapa.get(f, 0) for f in BAIXA_RENDA_FAIXAS)
     return {
@@ -145,8 +171,7 @@ def _tool_resumo_socioeconomico(current_user, args):
         'com_dados_socioeconomicos': com_dados,
         'cobertura_pct': round(com_dados / total_pac * 100, 1) if total_pac else 0.0,
         'distribuicao_renda': [
-            {'faixa': label, 'pacientes': mapa.get(chave, 0)}
-            for chave, label in FAIXAS_RENDA
+            {'faixa': label, 'pacientes': mapa.get(chave, 0)} for chave, label in FAIXAS_RENDA
         ],
         'perfil_baixa_renda': baixa,
     }
@@ -164,9 +189,12 @@ def _tool_logs_recentes(current_user, args):
     logs = q.order_by(LogAuditoria.data_hora.desc()).limit(limite).all()
     return {
         'logs': [
-            {'quando': l.data_hora.strftime('%d/%m/%Y %H:%M'),
-             'usuario': (l.usuario.nome if l.usuario else None),
-             'acao': l.acao, 'entidade': l.entidade}
+            {
+                'quando': l.data_hora.strftime('%d/%m/%Y %H:%M'),
+                'usuario': (l.usuario.nome if l.usuario else None),
+                'acao': l.acao,
+                'entidade': l.entidade,
+            }
             for l in logs
         ],
     }
@@ -176,15 +204,20 @@ def _tool_listar_profissionais(current_user, args):
     usuarios = Usuario.query.order_by(Usuario.nome).all()
     return {
         'profissionais': [
-            {'nome': u.nome, 'perfil': u.perfil,
-             'qtd_pacientes': Paciente.query.filter(
-                 Paciente.id_usuario == u.id, Paciente.removido_em.is_(None)).count()}
+            {
+                'nome': u.nome,
+                'perfil': u.perfil,
+                'qtd_pacientes': Paciente.query.filter(
+                    Paciente.id_usuario == u.id, Paciente.removido_em.is_(None)
+                ).count(),
+            }
             for u in usuarios
         ],
     }
 
 
 # ---------------- registry ----------------
+
 
 def _spec(nome, descricao, propriedades=None, obrigatorios=None):
     return {
@@ -205,72 +238,101 @@ TOOLS = {
     'buscar_pacientes': {
         'handler': _tool_buscar_pacientes,
         'admin_only': False,
-        'spec': _spec('buscar_pacientes',
-                      'Busca pacientes por nome (ou lista os primeiros). '
-                      'Retorna id, nome, sexo e idade.',
-                      {'termo': {'type': 'string',
-                                 'description': 'Parte do nome do paciente (opcional).'}}),
+        'spec': _spec(
+            'buscar_pacientes',
+            'Busca pacientes por nome (ou lista os primeiros). Retorna id, nome, sexo e idade.',
+            {
+                'termo': {
+                    'type': 'string',
+                    'description': 'Parte do nome do paciente (opcional).',
+                }
+            },
+        ),
     },
     'detalhes_paciente': {
         'handler': _tool_detalhes_paciente,
         'admin_only': False,
-        'spec': _spec('detalhes_paciente',
-                      'Detalhes de um paciente: dados básicos, anamnese (histórico '
-                      'clínico/familiar) e última avaliação. Use o id de buscar_pacientes.',
-                      {'paciente_id': {'type': 'integer', 'description': 'ID do paciente.'}},
-                      ['paciente_id']),
+        'spec': _spec(
+            'detalhes_paciente',
+            'Detalhes de um paciente: dados básicos, anamnese (histórico '
+            'clínico/familiar) e última avaliação. Use o id de buscar_pacientes.',
+            {'paciente_id': {'type': 'integer', 'description': 'ID do paciente.'}},
+            ['paciente_id'],
+        ),
     },
     'historico_avaliacoes': {
         'handler': _tool_historico_avaliacoes,
         'admin_only': False,
-        'spec': _spec('historico_avaliacoes',
-                      'Lista todas as avaliações (triagens) de um paciente com data, '
-                      'score e recomendação.',
-                      {'paciente_id': {'type': 'integer', 'description': 'ID do paciente.'}},
-                      ['paciente_id']),
+        'spec': _spec(
+            'historico_avaliacoes',
+            'Lista todas as avaliações (triagens) de um paciente com data, score e recomendação.',
+            {'paciente_id': {'type': 'integer', 'description': 'ID do paciente.'}},
+            ['paciente_id'],
+        ),
     },
     'estatisticas': {
         'handler': _tool_estatisticas,
         'admin_only': False,
-        'spec': _spec('estatisticas',
-                      'KPIs das avaliações (total, % encaminhamento, score médio) e top '
-                      'sintomas. Filtros opcionais. Respeita o escopo do usuário.',
-                      {'data_inicio': {'type': 'string', 'description': 'YYYY-MM-DD (opcional).'},
-                       'data_fim': {'type': 'string', 'description': 'YYYY-MM-DD (opcional).'},
-                       'sexo': {'type': 'string', 'description': "'M' ou 'F' (opcional)."},
-                       'recomendacao': {'type': 'string',
-                                        'description': "'ENCAMINHAR' ou 'NÃO ENCAMINHAR' (opcional)."}}),
+        'spec': _spec(
+            'estatisticas',
+            'KPIs das avaliações (total, % encaminhamento, score médio) e top '
+            'sintomas. Filtros opcionais. Respeita o escopo do usuário.',
+            {
+                'data_inicio': {
+                    'type': 'string',
+                    'description': 'YYYY-MM-DD (opcional).',
+                },
+                'data_fim': {'type': 'string', 'description': 'YYYY-MM-DD (opcional).'},
+                'sexo': {'type': 'string', 'description': "'M' ou 'F' (opcional)."},
+                'recomendacao': {
+                    'type': 'string',
+                    'description': "'ENCAMINHAR' ou 'NÃO ENCAMINHAR' (opcional).",
+                },
+            },
+        ),
     },
     'resumo_socioeconomico': {
         'handler': _tool_resumo_socioeconomico,
         'admin_only': True,
-        'spec': _spec('resumo_socioeconomico',
-                      'Resumo socioeconômico AGREGADO de todos os pacientes: distribuição '
-                      'de renda, cobertura e contagem de baixa renda. Apenas admin.'),
+        'spec': _spec(
+            'resumo_socioeconomico',
+            'Resumo socioeconômico AGREGADO de todos os pacientes: distribuição '
+            'de renda, cobertura e contagem de baixa renda. Apenas admin.',
+        ),
     },
     'logs_recentes': {
         'handler': _tool_logs_recentes,
         'admin_only': True,
-        'spec': _spec('logs_recentes',
-                      'Eventos recentes da auditoria do sistema. Apenas admin.',
-                      {'acao': {'type': 'string',
-                                'description': "Filtrar por ação, ex 'LOGIN', 'CREATE' (opcional)."},
-                       'limite': {'type': 'integer', 'description': 'Máx de registros (até 50).'}}),
+        'spec': _spec(
+            'logs_recentes',
+            'Eventos recentes da auditoria do sistema. Apenas admin.',
+            {
+                'acao': {
+                    'type': 'string',
+                    'description': "Filtrar por ação, ex 'LOGIN', 'CREATE' (opcional).",
+                },
+                'limite': {
+                    'type': 'integer',
+                    'description': 'Máx de registros (até 50).',
+                },
+            },
+        ),
     },
     'listar_profissionais': {
         'handler': _tool_listar_profissionais,
         'admin_only': True,
-        'spec': _spec('listar_profissionais',
-                      'Lista os profissionais/usuários do sistema e quantos pacientes cada '
-                      'um tem. Nunca expõe e-mail ou senha. Apenas admin.'),
+        'spec': _spec(
+            'listar_profissionais',
+            'Lista os profissionais/usuários do sistema e quantos pacientes cada '
+            'um tem. Nunca expõe e-mail ou senha. Apenas admin.',
+        ),
     },
 }
 
 
 def specs(current_user):
     """Specs das tools disponíveis para o papel do usuário (admin vê todas)."""
-    return [t['spec'] for t in TOOLS.values()
-            if current_user.is_admin or not t['admin_only']]
+    return [t['spec'] for t in TOOLS.values() if current_user.is_admin or not t['admin_only']]
 
 
 def dispatch(nome, current_user, args):
@@ -287,6 +349,5 @@ def dispatch(nome, current_user, args):
     except Exception as e:  # nunca derruba o chat
         resultado = {'erro': f'Falha ao executar a consulta: {e}'}
 
-    log_audit('CHAT_CONSULTA', entidade='chat',
-              detalhes={'tool': nome, 'args': args})
+    log_audit('CHAT_CONSULTA', entidade='chat', detalhes={'tool': nome, 'args': args})
     return resultado

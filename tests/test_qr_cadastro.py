@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from models.models import db, Paciente, QrCadastroToken, LogAuditoria, Usuario
+from models.models import LogAuditoria, Paciente, QrCadastroToken, db
 
 
 def _gerar_qr(client):
@@ -12,6 +12,7 @@ def _gerar_qr(client):
 
 
 # ---- Geração / Listagem ----
+
 
 def test_gerar_qr_cria_token(auth_client, app, admin):
     with app.app_context():
@@ -81,6 +82,7 @@ def test_admin_ve_todos_os_qrs(app, admin, usuario_padrao):
 
 # ---- Acesso publico ----
 
+
 def test_publico_token_invalido_404(client):
     r = client.get('/publico/cadastro/token-que-nao-existe')
     assert r.status_code == 404
@@ -120,10 +122,16 @@ def test_publico_post_cria_paciente_vinculado_ao_emissor(auth_client, client, ap
         qr_id = QrCadastroToken.query.first().id
         token = QrCadastroToken.query.first().token
 
-    r = client.post(f'/publico/cadastro/{token}', data={
-        'nome': 'Paciente Publico', 'cpf': '111.444.777-35', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-    })
+    r = client.post(
+        f'/publico/cadastro/{token}',
+        data={
+            'nome': 'Paciente Publico',
+            'cpf': '111.444.777-35',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+        },
+    )
     assert r.status_code == 200
     assert 'recebido' in r.data.decode('utf-8').lower()
 
@@ -132,11 +140,11 @@ def test_publico_post_cria_paciente_vinculado_ao_emissor(auth_client, client, ap
         assert p is not None
         assert p.id_usuario == admin_id
         assert p.consentimento_dado_em is not None
-        log = LogAuditoria.query.filter_by(acao='CREATE_VIA_QR',
-                                            entidade='paciente').first()
+        log = LogAuditoria.query.filter_by(acao='CREATE_VIA_QR', entidade='paciente').first()
         assert log is not None
         assert log.id_usuario == admin_id
         import json
+
         d = json.loads(log.detalhes)
         assert d['token_id'] == qr_id
 
@@ -146,12 +154,20 @@ def test_publico_cria_paciente_com_responsavel(auth_client, client, app):
     with app.app_context():
         token = QrCadastroToken.query.first().token
 
-    r = client.post(f'/publico/cadastro/{token}', data={
-        'nome': 'Crianca', 'cpf': '111.444.777-35', 'sexo': 'F',
-        'data_nascimento': '2018-01-01', 'consentimento': 'on',
-        'resp_nome': 'Mae Joana', 'resp_cpf': '52998224725',
-        'resp_email': 'joana@example.com', 'resp_parentesco': 'mae',
-    })
+    r = client.post(
+        f'/publico/cadastro/{token}',
+        data={
+            'nome': 'Crianca',
+            'cpf': '111.444.777-35',
+            'sexo': 'F',
+            'data_nascimento': '2018-01-01',
+            'consentimento': 'on',
+            'resp_nome': 'Mae Joana',
+            'resp_cpf': '52998224725',
+            'resp_email': 'joana@example.com',
+            'resp_parentesco': 'mae',
+        },
+    )
     assert r.status_code == 200
     with app.app_context():
         p = Paciente.query.filter_by(nome='Crianca').first()
@@ -166,10 +182,16 @@ def test_publico_cpf_invalido_rejeita(auth_client, client, app):
     with app.app_context():
         token = QrCadastroToken.query.first().token
 
-    r = client.post(f'/publico/cadastro/{token}', data={
-        'nome': 'X', 'cpf': '111.111.111-11', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-    })
+    r = client.post(
+        f'/publico/cadastro/{token}',
+        data={
+            'nome': 'X',
+            'cpf': '111.111.111-11',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+        },
+    )
     body = r.data.decode('utf-8')
     assert 'CPF inválido' in body
     with app.app_context():
@@ -182,10 +204,16 @@ def test_publico_cpf_duplicado_rejeita(auth_client, client, paciente_factory, ap
     with app.app_context():
         token = QrCadastroToken.query.first().token
 
-    r = client.post(f'/publico/cadastro/{token}', data={
-        'nome': 'Duplicado', 'cpf': '11144477735', 'sexo': 'M',
-        'data_nascimento': '2015-01-01', 'consentimento': 'on',
-    })
+    r = client.post(
+        f'/publico/cadastro/{token}',
+        data={
+            'nome': 'Duplicado',
+            'cpf': '11144477735',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+            'consentimento': 'on',
+        },
+    )
     body = r.data.decode('utf-8')
     assert 'Já existe' in body
 
@@ -195,10 +223,15 @@ def test_publico_sem_consentimento_rejeita(auth_client, client, app):
     with app.app_context():
         token = QrCadastroToken.query.first().token
 
-    r = client.post(f'/publico/cadastro/{token}', data={
-        'nome': 'Sem Consent', 'cpf': '111.444.777-35', 'sexo': 'M',
-        'data_nascimento': '2015-01-01',
-    })
+    r = client.post(
+        f'/publico/cadastro/{token}',
+        data={
+            'nome': 'Sem Consent',
+            'cpf': '111.444.777-35',
+            'sexo': 'M',
+            'data_nascimento': '2015-01-01',
+        },
+    )
     body = r.data.decode('utf-8')
     assert 'consentimento' in body.lower()
     with app.app_context():
@@ -206,6 +239,7 @@ def test_publico_sem_consentimento_rejeita(auth_client, client, app):
 
 
 # ---- Revogacao ----
+
 
 def test_revogar_invalida_link(auth_client, client, app):
     auth_client.post('/pacientes/qr/gerar')
@@ -230,8 +264,11 @@ def test_prorrogar_determinado(auth_client, app):
         expira_antes = qr.expira_em
         qr_id = qr.id
 
-    auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
-                     data={'quantidade': '7', 'unidade': 'dia'}, follow_redirects=False)
+    auth_client.post(
+        f'/pacientes/qr/{qr_id}/prorrogar',
+        data={'quantidade': '7', 'unidade': 'dia'},
+        follow_redirects=False,
+    )
 
     with app.app_context():
         qr = QrCadastroToken.query.get(qr_id)
@@ -247,9 +284,11 @@ def test_prorrogar_unidades_variadas(auth_client, app):
         with app.app_context():
             qr = QrCadastroToken.query.order_by(QrCadastroToken.id.desc()).first()
             qr_id = qr.id
-        r = auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
-                             data={'quantidade': qtd, 'unidade': unidade},
-                             follow_redirects=False)
+        r = auth_client.post(
+            f'/pacientes/qr/{qr_id}/prorrogar',
+            data={'quantidade': qtd, 'unidade': unidade},
+            follow_redirects=False,
+        )
         assert r.status_code in (302, 303)
         with app.app_context():
             qr = QrCadastroToken.query.get(qr_id)
@@ -261,8 +300,11 @@ def test_prorrogar_indeterminado(auth_client, app):
     with app.app_context():
         qr_id = QrCadastroToken.query.first().id
 
-    auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
-                     data={'quantidade': '1', 'unidade': 'sem_prazo'}, follow_redirects=False)
+    auth_client.post(
+        f'/pacientes/qr/{qr_id}/prorrogar',
+        data={'quantidade': '1', 'unidade': 'sem_prazo'},
+        follow_redirects=False,
+    )
 
     with app.app_context():
         qr = QrCadastroToken.query.get(qr_id)
@@ -278,8 +320,11 @@ def test_prorrogar_qr_expirado_ainda_fica_valido(auth_client, app):
         db.session.commit()
         qr_id = qr.id
 
-    auth_client.post(f'/pacientes/qr/{qr_id}/prorrogar',
-                     data={'quantidade': '1', 'unidade': 'dia'}, follow_redirects=False)
+    auth_client.post(
+        f'/pacientes/qr/{qr_id}/prorrogar',
+        data={'quantidade': '1', 'unidade': 'dia'},
+        follow_redirects=False,
+    )
 
     with app.app_context():
         qr = QrCadastroToken.query.get(qr_id)
@@ -295,8 +340,9 @@ def test_prorrogar_proibe_padrao(app, admin, usuario_padrao):
 
     c_padrao = app.test_client()
     c_padrao.post('/login', data={'email': 'teste@teste.com', 'senha': 'senha123'})
-    r = c_padrao.post(f'/pacientes/qr/{qr_id}/prorrogar',
-                      data={'quantidade': '7', 'unidade': 'dia'})
+    r = c_padrao.post(
+        f'/pacientes/qr/{qr_id}/prorrogar', data={'quantidade': '7', 'unidade': 'dia'}
+    )
     assert r.status_code == 403
 
 

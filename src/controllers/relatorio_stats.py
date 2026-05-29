@@ -5,14 +5,14 @@ from datetime import date
 from statistics import median
 
 from sqlalchemy.orm import joinedload
+
 from models.models import Avaliacao, Paciente, Sintoma, SintomaAvaliacao
 
-
 FAIXAS_ETARIAS = [
-    ('0-5',   0,   5),
-    ('6-10',  6,  10),
+    ('0-5', 0, 5),
+    ('6-10', 6, 10),
     ('11-17', 11, 17),
-    ('18+',   18, 200),
+    ('18+', 18, 200),
 ]
 
 
@@ -31,12 +31,11 @@ def _faixa_de(idade):
 
 def montar_query(args, current_user):
     """Aplica filtros da query-string. Retorna query SQLAlchemy."""
-    query = (Avaliacao.query
-             .join(Paciente, Avaliacao.id_paciente == Paciente.id)
-             .options(joinedload(Avaliacao.paciente),
-                      joinedload(Avaliacao.usuario))
-             .filter(Avaliacao.removido_em.is_(None),
-                     Paciente.removido_em.is_(None)))
+    query = (
+        Avaliacao.query.join(Paciente, Avaliacao.id_paciente == Paciente.id)
+        .options(joinedload(Avaliacao.paciente), joinedload(Avaliacao.usuario))
+        .filter(Avaliacao.removido_em.is_(None), Paciente.removido_em.is_(None))
+    )
 
     if not current_user.is_admin:
         query = query.filter(Avaliacao.id_usuario == current_user.id)
@@ -78,18 +77,26 @@ def montar_query(args, current_user):
         for nome, mn, mx in FAIXAS_ETARIAS:
             if nome == faixa:
                 hoje = date.today()
-                limite_velho = date(hoje.year - mx - 1, hoje.month, hoje.day) if mx < 200 else date(1900, 1, 1)
+                limite_velho = (
+                    date(hoje.year - mx - 1, hoje.month, hoje.day) if mx < 200 else date(1900, 1, 1)
+                )
                 limite_novo = date(hoje.year - mn, hoje.month, hoje.day)
-                query = query.filter(Paciente.data_nascimento > limite_velho,
-                                     Paciente.data_nascimento <= limite_novo)
+                query = query.filter(
+                    Paciente.data_nascimento > limite_velho,
+                    Paciente.data_nascimento <= limite_novo,
+                )
                 break
     if sintomas_ids:
         try:
             ids = [int(x) for x in sintomas_ids if x]
-            sub = (SintomaAvaliacao.query
-                   .filter(SintomaAvaliacao.id_sintoma.in_(ids), SintomaAvaliacao.presente.is_(True))
-                   .with_entities(SintomaAvaliacao.id_avaliacao)
-                   .subquery())
+            sub = (
+                SintomaAvaliacao.query.filter(
+                    SintomaAvaliacao.id_sintoma.in_(ids),
+                    SintomaAvaliacao.presente.is_(True),
+                )
+                .with_entities(SintomaAvaliacao.id_avaliacao)
+                .subquery()
+            )
             query = query.filter(Avaliacao.id.in_(sub))
         except ValueError:
             pass
@@ -142,8 +149,10 @@ def dados_por_recomendacao(avaliacoes):
 
 
 def dados_por_sexo(avaliacoes):
-    grupos = {'M': {'encaminhar': 0, 'nao_encaminhar': 0},
-              'F': {'encaminhar': 0, 'nao_encaminhar': 0}}
+    grupos = {
+        'M': {'encaminhar': 0, 'nao_encaminhar': 0},
+        'F': {'encaminhar': 0, 'nao_encaminhar': 0},
+    }
     for a in avaliacoes:
         sexo = a.paciente.sexo
         key = 'encaminhar' if a.recomendacao == 'ENCAMINHAR' else 'nao_encaminhar'
@@ -171,12 +180,12 @@ def frequencia_sintomas(avaliacoes, top_n=None):
     ids = [a.id for a in avaliacoes]
     if not ids:
         return []
-    rows = (SintomaAvaliacao.query
-            .join(Sintoma, SintomaAvaliacao.id_sintoma == Sintoma.id)
-            .filter(SintomaAvaliacao.id_avaliacao.in_(ids),
-                    SintomaAvaliacao.presente.is_(True))
-            .with_entities(Sintoma.label, Sintoma.id)
-            .all())
+    rows = (
+        SintomaAvaliacao.query.join(Sintoma, SintomaAvaliacao.id_sintoma == Sintoma.id)
+        .filter(SintomaAvaliacao.id_avaliacao.in_(ids), SintomaAvaliacao.presente.is_(True))
+        .with_entities(Sintoma.label, Sintoma.id)
+        .all()
+    )
     cont = Counter(r.label for r in rows)
     items = sorted(cont.items(), key=lambda x: x[1], reverse=True)
     if top_n:
@@ -216,16 +225,18 @@ def montar_tabela(avaliacoes, anonimizar=False):
     for a in avaliacoes:
         p = a.paciente
         idade = _calc_idade(p.data_nascimento, hoje)
-        linhas.append({
-            'id': a.id,
-            'data': a.data,
-            'paciente': _mascarar_nome(p.nome) if anonimizar else p.nome,
-            'cpf': _mascarar_cpf(p.cpf) if anonimizar else p.cpf,
-            'sexo': p.sexo,
-            'idade': idade,
-            'faixa': _faixa_de(idade),
-            'score': a.score,
-            'recomendacao': a.recomendacao,
-            'profissional': a.usuario.nome if a.usuario else '—',
-        })
+        linhas.append(
+            {
+                'id': a.id,
+                'data': a.data,
+                'paciente': _mascarar_nome(p.nome) if anonimizar else p.nome,
+                'cpf': _mascarar_cpf(p.cpf) if anonimizar else p.cpf,
+                'sexo': p.sexo,
+                'idade': idade,
+                'faixa': _faixa_de(idade),
+                'score': a.score,
+                'recomendacao': a.recomendacao,
+                'profissional': a.usuario.nome if a.usuario else '—',
+            }
+        )
     return linhas

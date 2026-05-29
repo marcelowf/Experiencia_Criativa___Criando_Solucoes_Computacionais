@@ -5,22 +5,27 @@ from unittest.mock import patch
 
 from flask_login import login_user
 
-from models.models import db, AiConfig, ChatConversa, ChatMensagem
 from controllers import ai_service
-
+from models.models import AiConfig, ChatConversa, ChatMensagem, db
 
 # ---------- fake do streaming do Ollama ----------
 
+
 class _FakeStream:
     """Simula a resposta streaming do Ollama (context manager + iter_lines)."""
+
     def __init__(self, linhas):
         self._linhas = linhas
+
     def __enter__(self):
         return self
+
     def __exit__(self, *a):
         return False
+
     def raise_for_status(self):
         pass
+
     def iter_lines(self):
         for l in self._linhas:
             yield l.encode('utf-8')
@@ -35,13 +40,17 @@ def _chunk(content='', tool_calls=None, done=False):
 
 # ---------- config admin ----------
 
+
 def test_config_ia_requer_admin(auth_client_padrao):
     assert auth_client_padrao.get('/config/ia/').status_code == 403
 
 
 def test_salvar_config_sem_campos_de_dev(auth_client, app):
-    r = auth_client.post('/config/ia/', data={'temperatura': '0.7', 'max_iteracoes': '3'},
-                         follow_redirects=True)
+    r = auth_client.post(
+        '/config/ia/',
+        data={'temperatura': '0.7', 'max_iteracoes': '3'},
+        follow_redirects=True,
+    )
     assert r.status_code == 200
     with app.app_context():
         c = AiConfig.query.first()
@@ -54,7 +63,7 @@ def test_config_nao_expoe_url_nem_modelo_editaveis(auth_client):
     body = auth_client.get('/config/ia/').data.decode('utf-8')
     assert 'name="base_url"' not in body
     assert 'name="modelo"' not in body
-    assert 'Criatividade' in body          # slider presente
+    assert 'Criatividade' in body  # slider presente
     assert 'type="range"' in body
 
 
@@ -67,6 +76,7 @@ def test_desativar_desliga_ia(auth_client, app):
 
 # ---------- ai_service: env + flags ----------
 
+
 def test_url_e_modelo_vem_de_env(app):
     with app.app_context():
         assert ai_service._base_url() == app.config['OLLAMA_URL'].rstrip('/')
@@ -75,13 +85,14 @@ def test_url_e_modelo_vem_de_env(app):
 
 def test_ia_configurada_depende_do_ativo(app, db):
     with app.app_context():
-        assert ai_service.ia_configurada() is True   # seed cria ativa
+        assert ai_service.ia_configurada() is True  # seed cria ativa
         AiConfig.query.first().ativo = False
         db.session.commit()
         assert ai_service.ia_configurada() is False
 
 
 # ---------- streaming (generator) ----------
+
 
 def test_chat_stream_tool_calling(app, admin, db):
     with app.test_request_context():
@@ -90,20 +101,35 @@ def test_chat_stream_tool_calling(app, admin, db):
         db.session.add(conv)
         db.session.commit()
 
-        resp_tool = _FakeStream([_chunk(
-            tool_calls=[{'function': {'name': 'buscar_pacientes', 'arguments': {}}}], done=True)])
-        resp_final = _FakeStream([_chunk(content='Você '), _chunk(content='não tem pacientes.'),
-                                  _chunk(done=True)])
+        resp_tool = _FakeStream(
+            [
+                _chunk(
+                    tool_calls=[{'function': {'name': 'buscar_pacientes', 'arguments': {}}}],
+                    done=True,
+                )
+            ]
+        )
+        resp_final = _FakeStream(
+            [
+                _chunk(content='Você '),
+                _chunk(content='não tem pacientes.'),
+                _chunk(done=True),
+            ]
+        )
         with patch('controllers.ai_service.requests.post', side_effect=[resp_tool, resp_final]):
             eventos = list(ai_service.chat_stream(conv, 'quantos pacientes?', admin))
 
         tipos = [e['tipo'] for e in eventos]
-        assert 'status' in tipos                                  # consultou a base
-        assert any(e['tipo'] == 'token' for e in eventos)         # streamou tokens
+        assert 'status' in tipos  # consultou a base
+        assert any(e['tipo'] == 'token' for e in eventos)  # streamou tokens
         assert eventos[-1]['tipo'] == 'fim'
         # persistência: user -> tool -> assistant
-        papeis = [m.papel for m in ChatMensagem.query
-                  .filter_by(id_conversa=conv.id).order_by(ChatMensagem.id).all()]
+        papeis = [
+            m.papel
+            for m in ChatMensagem.query.filter_by(id_conversa=conv.id)
+            .order_by(ChatMensagem.id)
+            .all()
+        ]
         assert papeis == ['user', 'tool', 'assistant']
         texto_final = ''.join(e.get('texto', '') for e in eventos if e['tipo'] == 'token')
         assert 'pacientes' in texto_final.lower()
@@ -115,7 +141,9 @@ def test_chat_stream_resposta_direta(app, admin, db):
         conv = ChatConversa(id_usuario=admin.id, titulo='Nova conversa')
         db.session.add(conv)
         db.session.commit()
-        resp = _FakeStream([_chunk(content='Olá! '), _chunk(content='Como ajudar?'), _chunk(done=True)])
+        resp = _FakeStream(
+            [_chunk(content='Olá! '), _chunk(content='Como ajudar?'), _chunk(done=True)]
+        )
         with patch('controllers.ai_service.requests.post', return_value=resp):
             eventos = list(ai_service.chat_stream(conv, 'oi', admin))
         assert [e['tipo'] for e in eventos if e['tipo'] == 'status'] == []  # nenhuma tool
@@ -140,6 +168,7 @@ def test_chat_stream_ia_desativada(app, admin, db):
 
 
 # ---------- endpoints do widget ----------
+
 
 def test_endpoint_mensagem_sse(auth_client, app):
     resp_final = _FakeStream([_chunk(content='resposta de teste'), _chunk(done=True)])
@@ -188,7 +217,7 @@ def test_nova_encerra_conversa_corrente(auth_client, app, admin):
 
 def test_widget_injetado_quando_ativa(auth_client):
     html = auth_client.get('/home').data.decode('utf-8')
-    assert 'cw-launcher' in html               # bolha presente
+    assert 'cw-launcher' in html  # bolha presente
     assert 'chat-widget.css' in html
 
 
@@ -211,4 +240,4 @@ def test_historico_nao_vaza_entre_usuarios(app, admin, usuario_padrao):
     c_padrao.post('/login', data={'email': 'teste@teste.com', 'senha': 'senha123'})
     r = c_padrao.get('/chat/widget/historico')
     body = r.data.decode('utf-8')
-    assert 'dado do admin' not in body   # padrão não vê a conversa do admin
+    assert 'dado do admin' not in body  # padrão não vê a conversa do admin

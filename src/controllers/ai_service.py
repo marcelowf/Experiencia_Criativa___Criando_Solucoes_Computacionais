@@ -10,8 +10,8 @@ import json
 import requests
 from flask import current_app
 
-from models.models import db, AiConfig, ChatMensagem
 from controllers import ai_tools
+from models.models import AiConfig, ChatMensagem, db
 
 # Timeout por chamada HTTP ao Ollama. Generoso porque, em CPU (sem GPU), o
 # carregamento do modelo + o processamento do prompt com as ferramentas pode
@@ -29,6 +29,7 @@ class IaIndisponivelError(RuntimeError):
 
 
 # ---------- config (env = dev, banco = admin) ----------
+
 
 def _base_url():
     return current_app.config.get('OLLAMA_URL', 'http://ollama:11434').rstrip('/')
@@ -60,12 +61,15 @@ def listar_modelos():
 
 # ---------- helpers de conversa ----------
 
+
 def _system_prompt(current_user):
-    escopo = ('Você é ADMINISTRADOR e pode consultar dados de todos os pacientes, '
-              'socioeconômico, logs e profissionais.'
-              if current_user.is_admin else
-              'Você é um profissional PADRÃO: só pode ver os SEUS pacientes e avaliações. '
-              'Consultas administrativas não estão disponíveis para você.')
+    escopo = (
+        'Você é ADMINISTRADOR e pode consultar dados de todos os pacientes, '
+        'socioeconômico, logs e profissionais.'
+        if current_user.is_admin
+        else 'Você é um profissional PADRÃO: só pode ver os SEUS pacientes e avaliações. '
+        'Consultas administrativas não estão disponíveis para você.'
+    )
     return (
         'Você é o assistente clínico do sistema Triagem SXF (Síndrome do X Frágil). '
         'Responda sempre em português do Brasil, de forma objetiva e profissional. '
@@ -80,9 +84,11 @@ def _system_prompt(current_user):
 
 def _historico_para_mensagens(conversa):
     """Histórico textual (turnos anteriores) — só user/assistant."""
-    return [{'role': m.papel, 'content': m.conteudo}
-            for m in conversa.mensagens
-            if m.papel in ('user', 'assistant') and (m.conteudo or '').strip()]
+    return [
+        {'role': m.papel, 'content': m.conteudo}
+        for m in conversa.mensagens
+        if m.papel in ('user', 'assistant') and (m.conteudo or '').strip()
+    ]
 
 
 def _extrair_args(tool_call):
@@ -113,14 +119,21 @@ def _executar_tools(conversa, tool_calls, current_user, messages):
         resultado = ai_tools.dispatch(nome, current_user, _extrair_args(tc))
         conteudo_json = json.dumps(resultado, ensure_ascii=False, default=str)
         messages.append({'role': 'tool', 'name': nome, 'content': conteudo_json})
-        db.session.add(ChatMensagem(id_conversa=conversa.id, papel='tool',
-                                    tool_nome=nome, conteudo=conteudo_json))
+        db.session.add(
+            ChatMensagem(
+                id_conversa=conversa.id,
+                papel='tool',
+                tool_nome=nome,
+                conteudo=conteudo_json,
+            )
+        )
         nomes.append(nome)
     db.session.commit()
     return nomes
 
 
 # ---------- streaming (usado pelo widget) ----------
+
 
 def chat_stream(conversa, texto_usuario, current_user):
     """Generator de eventos para SSE:
@@ -147,9 +160,15 @@ def chat_stream(conversa, texto_usuario, current_user):
         try:
             with requests.post(
                 f'{base}/api/chat',
-                json={'model': modelo, 'messages': messages, 'tools': tools,
-                      'stream': True, 'options': {'temperature': c.temperatura}},
-                stream=True, timeout=TIMEOUT_INFERENCIA,
+                json={
+                    'model': modelo,
+                    'messages': messages,
+                    'tools': tools,
+                    'stream': True,
+                    'options': {'temperature': c.temperatura},
+                },
+                stream=True,
+                timeout=TIMEOUT_INFERENCIA,
             ) as r:
                 r.raise_for_status()
                 for linha in r.iter_lines():
@@ -169,8 +188,13 @@ def chat_stream(conversa, texto_usuario, current_user):
             raise IaIndisponivelError(f'Falha na comunicação com a IA: {e}') from e
 
         if tool_calls_acc:
-            messages.append({'role': 'assistant', 'content': content_acc,
-                             'tool_calls': tool_calls_acc})
+            messages.append(
+                {
+                    'role': 'assistant',
+                    'content': content_acc,
+                    'tool_calls': tool_calls_acc,
+                }
+            )
             for nome in _executar_tools(conversa, tool_calls_acc, current_user, messages):
                 yield {'tipo': 'status', 'tool': nome}
             continue
@@ -179,17 +203,20 @@ def chat_stream(conversa, texto_usuario, current_user):
         break
 
     if not resposta_final:
-        resposta_final = ('Não consegui concluir a consulta. Tente reformular a '
-                          'pergunta ou seja mais específico.')
+        resposta_final = (
+            'Não consegui concluir a consulta. Tente reformular a pergunta ou seja mais específico.'
+        )
         yield {'tipo': 'token', 'texto': resposta_final}
 
-    db.session.add(ChatMensagem(id_conversa=conversa.id, papel='assistant',
-                                conteudo=resposta_final))
+    db.session.add(
+        ChatMensagem(id_conversa=conversa.id, papel='assistant', conteudo=resposta_final)
+    )
     db.session.commit()
     yield {'tipo': 'fim'}
 
 
 # ---------- não-streaming (fallback / testes) ----------
+
 
 def chat(conversa, texto_usuario, current_user):
     """Versão não-streaming: roda o fluxo e devolve {'resposta': str}."""
@@ -208,8 +235,13 @@ def chat(conversa, texto_usuario, current_user):
         try:
             r = requests.post(
                 f'{base}/api/chat',
-                json={'model': modelo, 'messages': messages, 'tools': tools,
-                      'stream': False, 'options': {'temperature': c.temperatura}},
+                json={
+                    'model': modelo,
+                    'messages': messages,
+                    'tools': tools,
+                    'stream': False,
+                    'options': {'temperature': c.temperatura},
+                },
                 timeout=TIMEOUT_INFERENCIA,
             )
             r.raise_for_status()
@@ -221,14 +253,21 @@ def chat(conversa, texto_usuario, current_user):
         if not tool_calls:
             resposta_final = (msg.get('content') or '').strip()
             break
-        messages.append({'role': 'assistant', 'content': msg.get('content') or '',
-                         'tool_calls': tool_calls})
+        messages.append(
+            {
+                'role': 'assistant',
+                'content': msg.get('content') or '',
+                'tool_calls': tool_calls,
+            }
+        )
         _executar_tools(conversa, tool_calls, current_user, messages)
 
     if not resposta_final:
-        resposta_final = ('Não consegui concluir a consulta. Tente reformular a '
-                          'pergunta ou seja mais específico.')
-    db.session.add(ChatMensagem(id_conversa=conversa.id, papel='assistant',
-                                conteudo=resposta_final))
+        resposta_final = (
+            'Não consegui concluir a consulta. Tente reformular a pergunta ou seja mais específico.'
+        )
+    db.session.add(
+        ChatMensagem(id_conversa=conversa.id, papel='assistant', conteudo=resposta_final)
+    )
     db.session.commit()
     return {'resposta': resposta_final}
