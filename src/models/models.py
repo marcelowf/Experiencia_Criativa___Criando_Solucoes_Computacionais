@@ -346,6 +346,43 @@ class EmailConfig(Auditable, db.Model):
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
 
+class AiConfig(Auditable, db.Model):
+    """Configuracao singleton do assistente de IA (Ollama)."""
+    __tablename__ = 'ai_configs'
+    id = db.Column(db.Integer, primary_key=True)
+    base_url = db.Column(db.String(200), nullable=False, default='http://ollama:11434')
+    modelo = db.Column(db.String(80), nullable=False, default='qwen2.5:7b')
+    temperatura = db.Column(db.Float, nullable=False, default=0.3)
+    max_iteracoes = db.Column(db.Integer, nullable=False, default=5)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class ChatConversa(Auditable, SoftDeletable, db.Model):
+    """Conversa do assistente de IA. Pertence a um usuario (privada)."""
+    __tablename__ = 'chat_conversas'
+    id = db.Column(db.Integer, primary_key=True)
+    id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False, index=True)
+    titulo = db.Column(db.String(160), nullable=False, default='Nova conversa')
+
+    usuario = db.relationship('Usuario', foreign_keys=[id_usuario])
+    mensagens = db.relationship(
+        'ChatMensagem', backref='conversa', lazy=True,
+        cascade='all, delete-orphan', order_by='ChatMensagem.criado_em'
+    )
+
+
+class ChatMensagem(db.Model):
+    """Mensagem de uma conversa. papel: 'user' | 'assistant' | 'tool'."""
+    __tablename__ = 'chat_mensagens'
+    id = db.Column(db.Integer, primary_key=True)
+    id_conversa = db.Column(db.Integer, db.ForeignKey('chat_conversas.id'),
+                            nullable=False, index=True)
+    papel = db.Column(db.String(12), nullable=False)
+    conteudo = db.Column(db.Text, nullable=True)
+    tool_nome = db.Column(db.String(60), nullable=True)
+    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
 class LogAuditoria(db.Model):
     __tablename__ = 'logs'
     id = db.Column(db.Integer, primary_key=True)
@@ -364,7 +401,7 @@ class LogAuditoria(db.Model):
 
 AUDITABLE_CLASSES = [Usuario, Responsavel, Paciente, DadosSocioeconomicos,
                      Avaliacao, Sintoma, VersaoPesos,
-                     QrCadastroToken, EmailConfig]
+                     QrCadastroToken, EmailConfig, AiConfig, ChatConversa]
 
 
 def _current_user_id_ou_none():

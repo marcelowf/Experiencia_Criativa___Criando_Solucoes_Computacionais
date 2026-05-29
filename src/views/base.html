@@ -45,6 +45,10 @@
          href="{{ url_for('relatorio.index') }}">
         <i class="fa fa-bar-chart nav-icon"></i> Relatórios
       </a>
+      <a class="sidebar-nav-item {% if request.endpoint and request.endpoint.startswith('chat.') %}active{% endif %}"
+         href="{{ url_for('chat.index') }}">
+        <i class="fa fa-comments nav-icon"></i> Assistente IA
+      </a>
       {% if current_user.is_admin %}
       <a class="sidebar-nav-item {% if request.endpoint == 'relatorio.socioeconomico' %}active{% endif %}"
          href="{{ url_for('relatorio.socioeconomico') }}">
@@ -68,6 +72,10 @@
       <a class="sidebar-nav-item {% if request.endpoint and request.endpoint.startswith('email_config.') %}active{% endif %}"
          href="{{ url_for('email_config.index') }}">
         <i class="fa fa-envelope nav-icon"></i> E-mail
+      </a>
+      <a class="sidebar-nav-item {% if request.endpoint and request.endpoint.startswith('ai_config.') %}active{% endif %}"
+         href="{{ url_for('ai_config.index') }}">
+        <i class="fa fa-robot nav-icon"></i> IA
       </a>
       {% endif %}
     </nav>

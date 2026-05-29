@@ -4,120 +4,118 @@ trigger:
       - master
 
 variables:
-  azureSubscription: 'azure-service-connection'   # nome da Service Connection
-  acrName: 'CHANGE_ME'                             # ex: fragileXacr
-  acrLoginServer: 'CHANGE_ME.azurecr.io'           # ex: fragileXacr.azurecr.io
-  imageRepository: 'fragile-x-app'
-  resourceGroup: 'CHANGE_ME'                       # resource group dos Web Apps
-  webAppTest: 'fragile-x-test'
-  webAppProd: 'fragile-x-prod'
-  tag: '$(Build.BuildId)'
+  azureSubscription: "azure-service-connection" # nome da Service Connection
+  acrName: "CHANGE_ME" # ex: fragileXacr
+  acrLoginServer: "CHANGE_ME.azurecr.io" # ex: fragileXacr.azurecr.io
+  imageRepository: "fragile-x-app"
+  resourceGroup: "CHANGE_ME" # resource group dos Web Apps
+  webAppTest: "fragile-x-test"
+  webAppProd: "fragile-x-prod"
+  tag: "$(Build.BuildId)"
 
-# ── CI ─────────────────────────────────────────────────────────────────────────
 stages:
-- stage: CI
-  displayName: 'CI — Test & Build'
-  jobs:
+  - stage: CI
+    displayName: "CI"
+    jobs:
+      - job: Test
+        displayName: "pytest"
+        pool:
+          vmImage: "ubuntu-latest"
+        steps:
+          - task: UsePythonVersion@0
+            displayName: "Python 3.12"
+            inputs:
+              versionSpec: "3.12"
 
-  - job: Test
-    displayName: 'pytest'
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - task: UsePythonVersion@0
-      displayName: 'Python 3.12'
-      inputs:
-        versionSpec: '3.12'
+          - script: |
+              sudo apt-get update -qq
+              sudo apt-get install -y --no-install-recommends \
+                libcairo2 libpango-1.0-0 libpangoft2-1.0-0 \
+                libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info fonts-dejavu
+              pip install -r src/requirements.txt
+            displayName: "Install system libs + Python deps"
 
-    - script: |
-        sudo apt-get update -qq
-        sudo apt-get install -y --no-install-recommends \
-          libcairo2 libpango-1.0-0 libpangoft2-1.0-0 \
-          libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info fonts-dejavu
-        pip install -r src/requirements.txt
-      displayName: 'Install system libs + Python deps'
+          - script: |
+              export SECRET_KEY=ci-dummy-key
+              pytest tests/ -v --tb=short
+            displayName: "Run pytest"
 
-    - script: |
-        export SECRET_KEY=ci-dummy-key
-        pytest tests/ -v --tb=short
-      displayName: 'Run pytest'
+      - job: Build
+        displayName: "Build & Push via ACR"
+        dependsOn: Test
+        condition: succeeded()
+        pool:
+          vmImage: "ubuntu-latest"
+        steps:
+          - task: AzureCLI@2
+            displayName: "az acr build → ACR"
+            inputs:
+              azureSubscription: $(azureSubscription)
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                az acr build \
+                  --registry $(acrName) \
+                  --image $(imageRepository):$(tag) \
+                  --image $(imageRepository):latest \
+                  .
 
-  - job: Build
-    displayName: 'Build & Push via ACR'
-    dependsOn: Test
+
+  - stage: DT
+    displayName: "DT"
+    dependsOn: CI
     condition: succeeded()
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - task: AzureCLI@2
-      displayName: 'az acr build → ACR'
-      inputs:
-        azureSubscription: $(azureSubscription)
-        scriptType: 'bash'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          az acr build \
-            --registry $(acrName) \
-            --image $(imageRepository):$(tag) \
-            --image $(imageRepository):latest \
-            .
+    jobs:
+      - deployment: DeployTest
+        displayName: "Azure WebApp (test)"
+        pool:
+          vmImage: "ubuntu-latest"
+        environment: "test"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: "Deploy container → test"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: "bash"
+                    scriptLocation: "inlineScript"
+                    inlineScript: |
+                      az webapp config container set \
+                        --name $(webAppTest) \
+                        --resource-group $(resourceGroup) \
+                        --docker-custom-image-name $(acrLoginServer)/$(imageRepository):$(tag)
+                      az webapp restart \
+                        --name $(webAppTest) \
+                        --resource-group $(resourceGroup)
 
-# ── DT ─────────────────────────────────────────────────────────────────────────
-- stage: DT
-  displayName: 'DT — Deploy to Test'
-  dependsOn: CI
-  condition: succeeded()
-  jobs:
-  - deployment: DeployTest
-    displayName: 'Azure WebApp (test)'
-    pool:
-      vmImage: 'ubuntu-latest'
-    environment: 'test'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            displayName: 'Deploy container → test'
-            inputs:
-              azureSubscription: $(azureSubscription)
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az webapp config container set \
-                  --name $(webAppTest) \
-                  --resource-group $(resourceGroup) \
-                  --docker-custom-image-name $(acrLoginServer)/$(imageRepository):$(tag)
-                az webapp restart \
-                  --name $(webAppTest) \
-                  --resource-group $(resourceGroup)
 
-# ── CD ─────────────────────────────────────────────────────────────────────────
-- stage: CD
-  displayName: 'CD — Deploy to Production'
-  dependsOn: DT
-  condition: succeeded()
-  jobs:
-  - deployment: DeployProd
-    displayName: 'Azure WebApp (prod)'
-    pool:
-      vmImage: 'ubuntu-latest'
-    environment: 'production'   # ← approval gate configurado aqui no portal
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            displayName: 'Deploy container → prod'
-            inputs:
-              azureSubscription: $(azureSubscription)
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az webapp config container set \
-                  --name $(webAppProd) \
-                  --resource-group $(resourceGroup) \
-                  --docker-custom-image-name $(acrLoginServer)/$(imageRepository):$(tag)
-                az webapp restart \
-                  --name $(webAppProd) \
-                  --resource-group $(resourceGroup)
+  - stage: CD
+    displayName: "CD"
+    dependsOn: DT
+    condition: succeeded()
+    jobs:
+      - deployment: DeployProd
+        displayName: "Azure WebApp (prod)"
+        pool:
+          vmImage: "ubuntu-latest"
+        environment: "production" # ← approval gate configurado aqui no portal
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: "Deploy container → prod"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: "bash"
+                    scriptLocation: "inlineScript"
+                    inlineScript: |
+                      az webapp config container set \
+                        --name $(webAppProd) \
+                        --resource-group $(resourceGroup) \
+                        --docker-custom-image-name $(acrLoginServer)/$(imageRepository):$(tag)
+                      az webapp restart \
+                        --name $(webAppProd) \
+                        --resource-group $(resourceGroup)

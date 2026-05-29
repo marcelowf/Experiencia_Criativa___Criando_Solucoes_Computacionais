@@ -32,3 +32,7 @@ docker compose exec web pytest tests/ -v
 |---|---|---|
 | `DATABASE_URL` | `postgresql://sxf_user:sxf_pass@localhost:5432/sxf_db` | Conexão SQLAlchemy |
 | `SECRET_KEY` | `dev-secret-mude-em-producao` | Sessões Flask e CSRF |
+
+docker stop $(docker ps -aq)
+docker rm $(docker ps -aq)
+docker system prune -a --volumes

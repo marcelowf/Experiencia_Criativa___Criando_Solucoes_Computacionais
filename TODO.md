@@ -7,5 +7,3 @@
 
 animações ao brir telas, cards, etc... 
 refino do design (cores, espaçamento, logos, wallpapers, animações, etc)
-
-login com o google?

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import (Blueprint, render_template, redirect, url_for, request,
+                   flash, abort, current_app)
 from flask_login import login_user, logout_user, login_required, current_user
 
 from models.models import db, Usuario, UserPreference, LogAuditoria
@@ -47,6 +48,62 @@ def login():
         log_audit('LOGIN_FALHO', detalhes={'email': email}, id_usuario=None)
         flash('Email ou senha incorretos.', 'danger')
     return render_template('login.html')
+
+
+# ---------- Login federado via Google (OAuth/OIDC) ----------
+
+def resolver_usuario_google(email: str, email_verificado: bool):
+    """Resolve o usuário para login via Google.
+
+    Regra de segurança: só entra quem JÁ existe na base (provisionado por um
+    admin). Exige e-mail verificado pelo Google.
+
+    Retorna (usuario, erro): usuario=None quando há erro; erro=None no sucesso.
+    """
+    email = (email or '').strip().lower()
+    if not email or not email_verificado:
+        return None, 'Não foi possível obter um e-mail verificado do Google.'
+    usuario = Usuario.query.filter_by(email=email).first()
+    if usuario is None:
+        return None, ('Este e-mail do Google não está cadastrado. '
+                      'Peça a um administrador para criar seu acesso.')
+    return usuario, None
+
+
+@auth_bp.route('/login/google')
+def login_google():
+    if not current_app.config.get('GOOGLE_LOGIN_ENABLED'):
+        abort(404)
+    from controllers.oauth import oauth
+    redirect_uri = url_for('auth.callback_google', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@auth_bp.route('/login/google/callback')
+def callback_google():
+    if not current_app.config.get('GOOGLE_LOGIN_ENABLED'):
+        abort(404)
+    from controllers.oauth import oauth
+    try:
+        token = oauth.google.authorize_access_token()
+    except Exception:
+        flash('Falha na autenticação com o Google. Tente novamente.', 'danger')
+        return redirect(url_for('auth.login'))
+
+    info = token.get('userinfo') or {}
+    email = info.get('email', '')
+    verificado = bool(info.get('email_verified'))
+
+    usuario, erro = resolver_usuario_google(email, verificado)
+    if erro:
+        log_audit('LOGIN_FALHO', id_usuario=None,
+                  detalhes={'email': (email or '').strip().lower(), 'metodo': 'google'})
+        flash(erro, 'danger')
+        return redirect(url_for('auth.login'))
+
+    login_user(usuario)
+    log_audit('LOGIN', id_usuario=usuario.id, detalhes={'metodo': 'google'})
+    return redirect(url_for('auth.home'))
 
 
 @auth_bp.route('/home')

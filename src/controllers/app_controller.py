@@ -22,12 +22,19 @@ def create_app(config_overrides=None):
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+    # Login federado Google (opcional — só liga se as credenciais existirem)
+    app.config['GOOGLE_CLIENT_ID'] = os.environ.get('GOOGLE_CLIENT_ID')
+    app.config['GOOGLE_CLIENT_SECRET'] = os.environ.get('GOOGLE_CLIENT_SECRET')
+
     if config_overrides:
         app.config.update(config_overrides)
 
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
+
+    from controllers.oauth import init_oauth
+    app.config['GOOGLE_LOGIN_ENABLED'] = init_oauth(app)
 
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -49,10 +56,12 @@ def create_app(config_overrides=None):
     from controllers.reset_senha_controller import reset_bp
     from controllers.qr_cadastro_controller import qr_bp, publico_bp
     from controllers.email_config_controller import email_config_bp
+    from controllers.ai_config_controller import ai_config_bp
+    from controllers.chat_controller import chat_bp
 
     for bp in [auth_bp, paciente_bp, avaliacao_bp, relatorio_bp,
                usuario_bp, sintoma_bp, logs_bp, reset_bp,
-               qr_bp, publico_bp, email_config_bp]:
+               qr_bp, publico_bp, email_config_bp, ai_config_bp, chat_bp]:
         app.register_blueprint(bp)
 
     @app.route('/health')
@@ -70,6 +79,11 @@ def create_app(config_overrides=None):
         if current_user.is_authenticated and current_user.preferencias:
             return {'tema_atual': current_user.preferencias.tema}
         return {'tema_atual': 'claro'}
+
+    # Expoe se o login Google esta habilitado (controla o botao na tela de login)
+    @app.context_processor
+    def inject_google_login():
+        return {'google_login_enabled': app.config.get('GOOGLE_LOGIN_ENABLED', False)}
 
     @app.errorhandler(403)
     def forbidden(e):

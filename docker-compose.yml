@@ -15,6 +15,14 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
   web:
     build: .
     ports:
@@ -25,6 +33,7 @@ services:
     environment:
       - FLASK_ENV=development
       - DATABASE_URL=postgresql://sxf_user:sxf_pass@db:5432/sxf_db
+      - OLLAMA_URL=http://ollama:11434
     depends_on:
       db:
         condition: service_healthy
@@ -38,3 +47,4 @@ services:
 
 volumes:
   postgres_data:
+  ollama_data:

@@ -45,11 +45,12 @@ def db(app, _db_session):
                                    SintomaPesoVersao, VersaoPesos,
                                    UserPreference, Paciente, DadosSocioeconomicos,
                                    Anamnese, Responsavel, QrCadastroToken,
-                                   EmailConfig, Usuario, Sintoma)
-        for model in [LogAuditoria, SintomaAvaliacao, Avaliacao,
+                                   EmailConfig, AiConfig, ChatMensagem, ChatConversa,
+                                   Usuario, Sintoma)
+        for model in [LogAuditoria, ChatMensagem, ChatConversa, SintomaAvaliacao, Avaliacao,
                       SintomaPesoVersao, VersaoPesos,
                       UserPreference, DadosSocioeconomicos, Anamnese, Paciente,
-                      Responsavel, QrCadastroToken, EmailConfig, Usuario, Sintoma]:
+                      Responsavel, QrCadastroToken, EmailConfig, AiConfig, Usuario, Sintoma]:
             _db.session.query(model).delete()
         _db.session.commit()
 

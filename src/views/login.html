@@ -163,6 +163,33 @@
   .login-links a { color: var(--primary); font-size: 0.9rem; font-weight: 500; }
   .login-links a:hover { color: var(--primary-hover); text-decoration: underline; }
 
+  /* divisor "ou" */
+  .login-divider {
+    display: flex; align-items: center;
+    gap: 12px; margin: 22px 0;
+    color: #94a3b8; font-size: 0.82rem;
+  }
+  .login-divider::before, .login-divider::after {
+    content: ""; flex: 1; height: 1px; background: #e2e8f0;
+  }
+
+  /* botão Google */
+  .btn-google {
+    height: 48px; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    background: #fff; color: #334155;
+    font-weight: 600; font-size: 0.95rem;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, box-shadow .15s;
+  }
+  .btn-google:hover {
+    background: #f8fafc; border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    text-decoration: none; color: #334155;
+  }
+  .btn-google img { width: 18px; height: 18px; }
+
   .login-footer {
     text-align: center;
     margin-top: 40px;
@@ -238,6 +265,14 @@
           <a href="{{ url_for('reset.esqueci_senha') }}">Esqueci minha senha</a>
         </div>
       </form>
+
+      {% if google_login_enabled %}
+      <div class="login-divider">ou</div>
+      <a href="{{ url_for('auth.login_google') }}" class="btn-google">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+        Entrar com Google
+      </a>
+      {% endif %}
 
       <div class="login-footer">
         Sistema de Triagem — Síndrome do X Frágil
