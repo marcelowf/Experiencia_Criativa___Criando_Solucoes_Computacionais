@@ -14,3 +14,5 @@ Em caso de dúvidas entre em contato pelo e-mail: contato@institutobk.org.br ou 
 a senha do google para o disparo de email é composta de que forma?
 
 telas de Email e IA devem ser revisadas com relação ao que espoem
+
+se o user for menor de idade deve ser solicitado de forma obrigatoria os dados do responsável

@@ -6,12 +6,14 @@ from datetime import date
 
 import pytest
 
-# Garantir que `src/` esteja no sys.path:
-# - local: tests/ fica ao lado de src/        -> ../src
-# - container: /app/tests/ com src em /app    -> ..
+# Garantir que os módulos da app estejam no sys.path em qualquer layout:
+# - local: tests/ fica ao lado de src/   -> ../src
+# - container: testes em /tests, app em  -> /app
 _HERE = os.path.dirname(__file__)
-sys.path.insert(0, os.path.abspath(os.path.join(_HERE, '..', 'src')))
-sys.path.insert(0, os.path.abspath(os.path.join(_HERE, '..')))
+for _p in (os.path.join(_HERE, '..', 'src'), '/app', os.path.join(_HERE, '..')):
+    _abs = os.path.abspath(_p)
+    if _abs not in sys.path:
+        sys.path.insert(0, _abs)
 
 from controllers.app_controller import create_app
 from models.models import Paciente, UserPreference, Usuario

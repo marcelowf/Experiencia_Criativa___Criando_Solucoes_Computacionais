@@ -16,7 +16,10 @@ COPY src/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ .
-COPY tests/ ./tests/
+COPY tests/ /tests/
+
+# Permite importar os módulos da app (em /app) ao rodar os testes de /tests.
+ENV PYTHONPATH=/app
 
 EXPOSE 8080
 

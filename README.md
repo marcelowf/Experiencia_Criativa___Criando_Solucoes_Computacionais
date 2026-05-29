@@ -41,7 +41,7 @@ modelo são definidos por variável de ambiente (`OLLAMA_URL` / `OLLAMA_MODEL`),
 ### Rodar testes
 
 ```bash
-docker compose exec web pytest tests/ -v
+docker compose exec web pytest /tests -v
 ```
 
 ### Formatação automática (pre-commit)

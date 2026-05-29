@@ -29,9 +29,10 @@ services:
       - "8080:8080"
     volumes:
       - ./src:/app
-      - ./tests:/app/tests
+      - ./tests:/tests
     environment:
       - FLASK_ENV=development
+      - PYTHONPATH=/app
       - DATABASE_URL=postgresql://sxf_user:sxf_pass@db:5432/sxf_db
       - OLLAMA_URL=http://ollama:11434
       - OLLAMA_MODEL=qwen2.5:7b
